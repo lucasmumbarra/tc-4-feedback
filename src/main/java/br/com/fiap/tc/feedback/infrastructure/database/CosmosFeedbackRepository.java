@@ -1,5 +1,6 @@
-package com.fiap.tc.infra;
+package br.com.fiap.tc.feedback.infrastructure.database;
 
+import br.com.fiap.tc.feedback.domain.model.Urgencia;
 import com.azure.cosmos.CosmosClient;
 import com.azure.cosmos.CosmosClientBuilder;
 import com.azure.cosmos.CosmosContainer;
@@ -7,7 +8,6 @@ import com.azure.cosmos.CosmosDatabase;
 import com.azure.cosmos.models.CosmosContainerProperties;
 import com.azure.cosmos.models.PartitionKey;
 import com.azure.cosmos.models.ThroughputProperties;
-import com.fiap.tc.avaliacao.Urgencia;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -71,14 +71,23 @@ public class CosmosFeedbackRepository {
     var query =
         "SELECT * FROM c WHERE c.day IN (" + inParams + ") AND c.createdAt >= @start AND c.createdAt <= @end";
     var q = new com.azure.cosmos.models.SqlQuerySpec(query);
-    q.getParameters().add(new com.azure.cosmos.models.SqlParameter("@start", startUtc.atStartOfDay().toInstant(ZoneOffset.UTC).toString()));
-    q.getParameters().add(new com.azure.cosmos.models.SqlParameter("@end", endUtc.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC).toString()));
+    q.getParameters()
+        .add(
+            new com.azure.cosmos.models.SqlParameter(
+                "@start", startUtc.atStartOfDay().toInstant(ZoneOffset.UTC).toString()));
+    q.getParameters()
+        .add(
+            new com.azure.cosmos.models.SqlParameter(
+                "@end", endUtc.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC).toString()));
     for (int i = 0; i < days.size(); i++) {
       q.getParameters().add(new com.azure.cosmos.models.SqlParameter("@d" + i, days.get(i)));
     }
 
     var out = new ArrayList<FeedbackDoc>();
-    for (var page : container.queryItems(q, new com.azure.cosmos.models.CosmosQueryRequestOptions(), FeedbackDoc.class).iterableByPage()) {
+    for (var page :
+        container
+            .queryItems(q, new com.azure.cosmos.models.CosmosQueryRequestOptions(), FeedbackDoc.class)
+            .iterableByPage()) {
       out.addAll(page.getResults());
     }
     return out;

@@ -1,8 +1,7 @@
-package com.fiap.tc.infra;
+package br.com.fiap.tc.feedback.infrastructure.external.email;
 
 import com.azure.communication.email.EmailClient;
 import com.azure.communication.email.EmailClientBuilder;
-import com.azure.communication.email.models.EmailMessage;
 import com.azure.core.util.polling.SyncPoller;
 import java.util.Objects;
 
@@ -24,7 +23,7 @@ public class AcsEmailSender {
 
   public void sendPlainText(String to, String subject, String body) {
     var message =
-        new EmailMessage()
+        new com.azure.communication.email.models.EmailMessage()
             .setSenderAddress(from)
             .setToRecipients(to)
             .setSubject(subject)

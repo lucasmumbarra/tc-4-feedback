@@ -1,4 +1,4 @@
-package com.fiap.tc.avaliacao;
+package br.com.fiap.tc.feedback.domain.model;
 
 public enum Urgencia {
   CRITICA,

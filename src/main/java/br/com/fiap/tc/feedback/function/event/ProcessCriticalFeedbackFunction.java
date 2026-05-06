@@ -1,8 +1,8 @@
-package com.fiap.tc.notificacao;
+package br.com.fiap.tc.feedback.function.event;
 
+import br.com.fiap.tc.feedback.application.dto.message.CriticalFeedbackMessage;
+import br.com.fiap.tc.feedback.infrastructure.external.email.AcsEmailSender;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fiap.tc.avaliacao.CriticalFeedbackMessage;
-import com.fiap.tc.infra.AcsEmailSender;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.QueueTrigger;
@@ -29,7 +29,7 @@ public class ProcessCriticalFeedbackFunction {
     }
   }
 
-  private static void enviarEmail(CriticalFeedbackMessage payload) throws Exception {
+  private static void enviarEmail(CriticalFeedbackMessage payload) {
     var to = System.getenv("ADMIN_EMAIL_TO");
     var from = System.getenv("EMAIL_FROM");
     var acs = System.getenv("ACS_EMAIL_CONNECTION_STRING");
@@ -46,7 +46,11 @@ public class ProcessCriticalFeedbackFunction {
         Processado em (UTC): %s
         """
             .formatted(payload.descricao(), payload.urgencia(), payload.dataEnvioUtc(), Instant.now());
-    AcsEmailSender.fromEnv(acs, from).sendPlainText(to, subject, body);
+    try {
+      AcsEmailSender.fromEnv(acs, from).sendPlainText(to, subject, body);
+    } catch (Exception ignored) {
+      // Intencional: notificação não deve derrubar o processamento.
+    }
   }
 }
 

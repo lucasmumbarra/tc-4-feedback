@@ -1,16 +1,29 @@
-# feedback
+# Plataforma de Feedback (Tech Challenge – Fase 4)
 
-This project uses Quarkus, the Supersonic Subatomic Java Framework.
+Projeto serverless para recebimento de feedbacks, notificação de itens críticos e geração de relatório semanal. A solução foi montada para ser simples de subir/destruir e ficar **100% Azure**.
 
-If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.
+## Visão geral
 
-## Tech Challenge (Fase 4) - Plataforma de Feedback
+O sistema recebe avaliações via HTTP, persiste os dados, dispara notificação quando a avaliação é crítica e gera um relatório semanal com agregações.
 
-### Endpoints
+- **Entrada**: HTTP (Azure Functions via Quarkus)
+- **Persistência**: Azure Cosmos DB (NoSQL)
+- **Mensageria**: Azure Storage Queue
+- **E-mail**: Azure Communication Services (Email)
 
-- `POST /api/avaliacao`
+## Arquitetura (alto nível)
 
-Body:
+1. Cliente envia `POST /api/avaliacao`
+2. A Function HTTP valida e salva no Cosmos DB
+3. Se a avaliação for **CRITICA**, publica uma mensagem na Storage Queue
+4. Uma Function (Queue Trigger) consome a mensagem e envia o e-mail de urgência
+5. Uma Function (Timer Trigger) roda semanalmente, consulta o Cosmos DB, agrega e envia o relatório
+
+## Endpoints
+
+### `POST /api/avaliacao`
+
+Payload:
 
 ```json
 {
@@ -20,89 +33,70 @@ Body:
 ```
 
 Regras:
-- `nota`: inteiro de 0 a 10
-- A urgência é derivada da nota: `0-3` = **CRITICA**, `4-6` = **ATENCAO**, `7-10` = **OK**
+- **nota**: inteiro de 0 a 10
+- **urgência** (derivada da nota):
+  - 0 a 3: `CRITICA`
+  - 4 a 6: `ATENCAO`
+  - 7 a 10: `OK`
 
-### Funções serverless
+## Funções
 
-- **Ingestão HTTP**: via Quarkus REST (mapeado para Azure Functions HTTP pelo `quarkus-azure-functions-http`)
-- **Notificação de urgência**: Queue Trigger `processCriticalFeedback` (consome Storage Queue)
-- **Relatório semanal**: Timer Trigger `relatorioSemanal` (segunda-feira 09:00 UTC)
+### HTTP Trigger (ingestão)
+- **Rota**: `POST /api/avaliacao`
+- **Classe**: `br.com.fiap.tc.feedback.function.http.SubmitFeedbackFunction`
+- **Responsabilidade**: validar, persistir no Cosmos DB e publicar mensagem na fila quando for crítico
 
-### Variáveis de ambiente (local / Azure Functions)
+### Queue Trigger (notificação de crítico)
+- **FunctionName**: `processCriticalFeedback`
+- **Classe**: `br.com.fiap.tc.feedback.function.event.ProcessCriticalFeedbackFunction`
+- **Responsabilidade**: consumir a fila e enviar e-mail de urgência
 
-Configurar em `local.settings.json` (para rodar local) e em Application Settings (no Azure):
+### Timer Trigger (relatório semanal)
+- **FunctionName**: `relatorioSemanal`
+- **Classe**: `br.com.fiap.tc.feedback.function.event.GenerateWeeklyReportFunction`
+- **Schedule**: segunda-feira às 09:00 UTC (`0 0 9 * * 1`)
+- **Responsabilidade**: consultar os últimos 7 dias, calcular média e contagens e enviar o e-mail do relatório
 
-- `AZURE_STORAGE_CONNECTION_STRING`: connection string do Storage Account (Queue)
-- `CRITICAL_FEEDBACK_QUEUE_NAME`: default `critical-feedback`
-- `COSMOS_ENDPOINT`: endpoint do CosmosDB
-- `COSMOS_KEY`: key do CosmosDB
+## Configuração (local e Azure)
+
+As variáveis abaixo existem em `local.settings.json` e devem ser configuradas também em **Application Settings** no Azure.
+
+- `AZURE_STORAGE_CONNECTION_STRING`: Storage Account (Queue)
+- `CRITICAL_FEEDBACK_QUEUE_NAME`: nome da fila (default `critical-feedback`)
+
+- `COSMOS_ENDPOINT`: endpoint do Cosmos DB
+- `COSMOS_KEY`: key do Cosmos DB
 - `COSMOS_DATABASE`: default `feedbackdb`
 - `COSMOS_CONTAINER`: default `feedbacks`
+
 - `ACS_EMAIL_CONNECTION_STRING`: connection string do Azure Communication Services (Email)
-- `EMAIL_FROM`: remetente (domínio configurado no ACS Email)
-- `ADMIN_EMAIL_TO`: destinatário (admin)
+- `EMAIL_FROM`: remetente configurado no ACS Email
+- `ADMIN_EMAIL_TO`: destinatário (administradores)
 
-## Running the application in dev mode
+## Rodando localmente
 
-You can run your application in dev mode that enables live coding using:
+Pré-requisitos:
+- Java 21
 
-```shell script
-./gradlew quarkusDev
+Comandos:
+
+```bash
+./gradlew.bat test
+./gradlew.bat quarkusDev
 ```
 
-> **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at <http://localhost:8080/q/dev/>.
+Observação: o `quarkus.http.root-path=/api` está configurado em `src/main/resources/application.properties`.
 
-## Packaging and running the application
+## Estrutura do código
 
-The application can be packaged using:
+O projeto segue uma separação por responsabilidade (inspirada em Clean Architecture):
 
-```shell script
-./gradlew build
-```
+- `function/`: entradas (HTTP e triggers)
+- `application/`: DTOs e contratos de aplicação
+- `domain/`: regras e modelos centrais
+- `infrastructure/`: integrações com serviços Azure (Cosmos, Queue, ACS Email)
 
-It produces the `quarkus-run.jar` file in the `build/quarkus-app/` directory.
-Be aware that it’s not an _über-jar_ as the dependencies are copied into the `build/quarkus-app/lib/` directory.
+## Referências
 
-The application is now runnable using `java -jar build/quarkus-app/quarkus-run.jar`.
-
-If you want to build an _über-jar_, execute the following command:
-
-```shell script
-./gradlew build -Dquarkus.package.jar.type=uber-jar
-```
-
-The application, packaged as an _über-jar_, is now runnable using `java -jar build/*-runner.jar`.
-
-## Creating a native executable
-
-You can create a native executable using:
-
-```shell script
-./gradlew build -Dquarkus.native.enabled=true
-```
-
-Or, if you don't have GraalVM installed, you can run the native executable build in a container using:
-
-```shell script
-./gradlew build -Dquarkus.native.enabled=true -Dquarkus.native.container-build=true
-```
-
-You can then execute your native executable with: `./build/feedback-1.0-SNAPSHOT-runner`
-
-If you want to learn more about building native executables, please consult <https://quarkus.io/guides/gradle-tooling>.
-
-## Related Guides
-
-- REST ([guide](https://quarkus.io/guides/rest)): A Jakarta REST implementation utilizing build time processing and
-  Vert.x. This extension is not compatible with the quarkus-resteasy extension, or any of the extensions that depend on
-  it.
-- Azure Functions HTTP ([guide](https://quarkus.io/guides/azure-functions-http)): Write Microsoft Azure functions
-- REST Jackson ([guide](https://quarkus.io/guides/rest#json-serialisation)): Jackson serialization support for Quarkus
-  REST. This extension is not compatible with the quarkus-resteasy extension, or any of the extensions that depend on it
-
-## Provided Code
-
-### REST
-
-Este projeto foi iniciado a partir de um template do Quarkus, mas os exemplos de endpoints (`/hello`) foram removidos para manter apenas os componentes do Tech Challenge.
+- Quarkus: `https://quarkus.io/`
+- Quarkus Azure Functions HTTP: `https://quarkus.io/guides/azure-functions-http`

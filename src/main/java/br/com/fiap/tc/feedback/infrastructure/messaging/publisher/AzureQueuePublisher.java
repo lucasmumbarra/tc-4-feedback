@@ -1,4 +1,4 @@
-package com.fiap.tc.infra;
+package br.com.fiap.tc.feedback.infrastructure.messaging.publisher;
 
 import com.azure.storage.queue.QueueClient;
 import com.azure.storage.queue.QueueClientBuilder;

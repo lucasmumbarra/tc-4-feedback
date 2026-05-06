@@ -1,4 +1,4 @@
-package com.fiap.tc.avaliacao;
+package br.com.fiap.tc.feedback.application.dto.request;
 
 public class AvaliacaoRequest {
   public String descricao;

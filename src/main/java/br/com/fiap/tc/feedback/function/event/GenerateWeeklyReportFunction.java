@@ -1,7 +1,8 @@
-package com.fiap.tc.relatorio;
+package br.com.fiap.tc.feedback.function.event;
 
-import com.fiap.tc.infra.AcsEmailSender;
-import com.fiap.tc.infra.CosmosFeedbackRepository;
+import br.com.fiap.tc.feedback.domain.model.Urgencia;
+import br.com.fiap.tc.feedback.infrastructure.database.CosmosFeedbackRepository;
+import br.com.fiap.tc.feedback.infrastructure.external.email.AcsEmailSender;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.annotation.FunctionName;
 import com.microsoft.azure.functions.annotation.TimerTrigger;
@@ -10,7 +11,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.EnumMap;
 
-public class RelatorioSemanalFunction {
+public class GenerateWeeklyReportFunction {
   // NCRONTAB: {second} {minute} {hour} {day} {month} {day-of-week}
   // Segunda-feira às 09:00 UTC.
   @FunctionName("relatorioSemanal")
@@ -29,14 +30,14 @@ public class RelatorioSemanalFunction {
     var feedbacks = CosmosFeedbackRepository.fromEnv().listBetweenInclusive(start, end);
 
     var porDia = new java.util.TreeMap<LocalDate, Integer>();
-    var porUrgencia = new EnumMap<com.fiap.tc.avaliacao.Urgencia, Integer>(com.fiap.tc.avaliacao.Urgencia.class);
-    for (var u : com.fiap.tc.avaliacao.Urgencia.values()) porUrgencia.put(u, 0);
+    var porUrgencia = new EnumMap<Urgencia, Integer>(Urgencia.class);
+    for (var u : Urgencia.values()) porUrgencia.put(u, 0);
 
     long somaNotas = 0;
     for (var f : feedbacks) {
       var dia = LocalDate.parse(f.day());
       porDia.merge(dia, 1, Integer::sum);
-      porUrgencia.merge(com.fiap.tc.avaliacao.Urgencia.valueOf(f.urgencia()), 1, Integer::sum);
+      porUrgencia.merge(Urgencia.valueOf(f.urgencia()), 1, Integer::sum);
       somaNotas += f.nota();
     }
     double media = feedbacks.isEmpty() ? 0.0 : (double) somaNotas / (double) feedbacks.size();
@@ -58,7 +59,7 @@ public class RelatorioSemanalFunction {
       LocalDate end,
       double media,
       java.util.Map<LocalDate, Integer> porDia,
-      java.util.Map<com.fiap.tc.avaliacao.Urgencia, Integer> porUrgencia,
+      java.util.Map<Urgencia, Integer> porUrgencia,
       Instant dataEnvio) {
     var sb = new StringBuilder();
     sb.append("Período (UTC): ").append(start).append(" a ").append(end).append("\n");
@@ -79,6 +80,5 @@ public class RelatorioSemanalFunction {
     }
     return sb.toString();
   }
-
 }
 

@@ -1,8 +1,11 @@
-package com.fiap.tc.avaliacao;
+package br.com.fiap.tc.feedback.function.http;
 
+import br.com.fiap.tc.feedback.application.dto.message.CriticalFeedbackMessage;
+import br.com.fiap.tc.feedback.application.dto.request.AvaliacaoRequest;
+import br.com.fiap.tc.feedback.domain.model.Urgencia;
+import br.com.fiap.tc.feedback.infrastructure.database.CosmosFeedbackRepository;
+import br.com.fiap.tc.feedback.infrastructure.messaging.publisher.AzureQueuePublisher;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fiap.tc.infra.AzureQueuePublisher;
-import com.fiap.tc.infra.CosmosFeedbackRepository;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -16,7 +19,7 @@ import java.time.format.DateTimeFormatter;
 @Path("/avaliacao")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
-public class AvaliacaoResource {
+public class SubmitFeedbackFunction {
   private static final DateTimeFormatter TS = DateTimeFormatter.ISO_INSTANT.withZone(ZoneOffset.UTC);
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -26,7 +29,9 @@ public class AvaliacaoResource {
       return Response.status(Response.Status.BAD_REQUEST).entity(new ErrorResponse("descricao is required")).build();
     }
     if (req.nota < 0 || req.nota > 10) {
-      return Response.status(Response.Status.BAD_REQUEST).entity(new ErrorResponse("nota must be between 0 and 10")).build();
+      return Response.status(Response.Status.BAD_REQUEST)
+          .entity(new ErrorResponse("nota must be between 0 and 10"))
+          .build();
     }
 
     var now = Instant.now();
@@ -39,9 +44,7 @@ public class AvaliacaoResource {
     }
 
     return Response.status(Response.Status.CREATED)
-        .entity(
-            new AvaliacaoResponse(
-                saved.id(), saved.descricao(), saved.nota(), saved.urgencia(), saved.createdAt()))
+        .entity(new AvaliacaoResponse(saved.id(), saved.descricao(), saved.nota(), saved.urgencia(), saved.createdAt()))
         .build();
   }
 
@@ -56,8 +59,7 @@ public class AvaliacaoResource {
     try {
       var payload = new CriticalFeedbackMessage(descricao, urgencia.name(), TS.format(createdAt));
       var json = MAPPER.writeValueAsString(payload);
-      AzureQueuePublisher.fromConnectionString(System.getenv("AZURE_STORAGE_CONNECTION_STRING"), queueName)
-          .sendBase64(json);
+      AzureQueuePublisher.fromConnectionString(System.getenv("AZURE_STORAGE_CONNECTION_STRING"), queueName).sendBase64(json);
     } catch (Exception ignored) {
       // Intencional: fila não deve derrubar a ingestão.
     }
