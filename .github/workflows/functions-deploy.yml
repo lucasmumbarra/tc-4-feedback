@@ -1,0 +1,59 @@
+name: functions-deploy
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build (Quarkus Azure Functions package)
+        run: ./gradlew build
+
+      - name: Locate Function App
+        run: |
+          RG="rg-${{ vars.AZURE_PREFIX }}-${{ vars.AZURE_ENVIRONMENT }}"
+          APP_NAME=$(az functionapp list --resource-group "$RG" --query "[0].name" -o tsv)
+          if [ -z "$APP_NAME" ]; then
+            echo "Function App not found in resource group $RG"
+            exit 1
+          fi
+          echo "RG=$RG" >> $GITHUB_ENV
+          echo "APP_NAME=$APP_NAME" >> $GITHUB_ENV
+          echo "Function App: $APP_NAME"
+
+      - name: Zip package
+        run: |
+          # Quarkus gera o pacote pronto para Functions em build/azure-functions/<app-name>/
+          PKG_DIR=$(ls -d build/azure-functions/* | head -n 1)
+          echo "Using package dir: $PKG_DIR"
+          (cd "$PKG_DIR" && zip -r ../functionapp.zip .)
+          ls -la build/azure-functions/functionapp.zip
+
+      - name: Deploy (zip)
+        run: |
+          az functionapp deployment source config-zip \
+            --resource-group "$RG" \
+            --name "$APP_NAME" \
+            --src "build/azure-functions/functionapp.zip"
+

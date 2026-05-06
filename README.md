@@ -107,6 +107,7 @@ Este repositório inclui IaC com **Bicep** em `infra/` e dois fluxos para operar
 
 - **Deploy (criar/atualizar)**: GitHub Actions `infra-deploy` (manual)
 - **Destroy (apagar tudo)**: GitHub Actions `infra-destroy` (manual, remove o Resource Group)
+- **Deploy do código (Functions)**: GitHub Actions `functions-deploy` (manual)
 
 ### GitHub Actions (manual)
 
@@ -130,6 +131,19 @@ Como funciona:
 - O workflow cria um Resource Group chamado `rg-<prefix>-<environment>`
 - Executa `infra/main.bicep` no escopo do Resource Group
 - O destroy apaga o Resource Group (e tudo dentro)
+
+### Deploy das Functions (código)
+
+Depois que a infra estiver criada, execute o workflow **`functions-deploy`**.
+
+O que ele faz:
+- `./gradlew build` para gerar o pacote pronto em `build/azure-functions/<app-name>/`
+- Cria um `.zip` desse diretório
+- Publica na Function App via `az functionapp deployment source config-zip`
+
+Requisitos:
+- Os mesmos secrets de login Azure (OIDC) do deploy de infra
+- `AZURE_PREFIX` e `AZURE_ENVIRONMENT` configurados como Repository Variables (ele usa isso para localizar o Resource Group)
 
 ### Azure DevOps (opcional)
 
