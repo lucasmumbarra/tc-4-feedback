@@ -22,6 +22,7 @@ public class ProcessCriticalFeedbackFunction {
     try {
       // message arrives decoded by binding when sender used base64; treat as JSON string.
       var payload = MAPPER.readValue(message, CriticalFeedbackMessage.class);
+      context.getLogger().info("critical_feedback.received urgencia=" + payload.urgencia());
       enviarEmail(payload);
       context.getLogger().info("Notificação de feedback crítico enviada.");
     } catch (Exception e) {

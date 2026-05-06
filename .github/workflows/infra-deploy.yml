@@ -1,0 +1,49 @@
+name: infra-deploy
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Create resource group
+        run: |
+          RG="rg-${{ vars.AZURE_PREFIX }}-${{ vars.AZURE_ENVIRONMENT }}"
+          az group create --name "$RG" --location "${{ vars.AZURE_LOCATION }}"
+          echo "RG=$RG" >> $GITHUB_ENV
+
+      - name: Deploy Bicep (resource group scope)
+        run: |
+          az deployment group create \
+            --resource-group "$RG" \
+            --name "deploy-${{ github.run_id }}" \
+            --template-file infra/main.bicep \
+            --parameters \
+              prefix="${{ vars.AZURE_PREFIX }}" \
+              location="${{ vars.AZURE_LOCATION }}" \
+              criticalQueueName="critical-feedback" \
+              cosmosDatabaseName="feedbackdb" \
+              cosmosContainerName="feedbacks" \
+              emailFrom="${{ secrets.EMAIL_FROM }}" \
+              adminEmailTo="${{ secrets.ADMIN_EMAIL_TO }}" \
+              acsEmailConnectionString="${{ secrets.ACS_EMAIL_CONNECTION_STRING }}"
+
+      - name: Outputs
+        run: |
+          az deployment group show --resource-group "$RG" --name "deploy-${{ github.run_id }}" --query properties.outputs
+

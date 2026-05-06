@@ -15,11 +15,13 @@ import jakarta.ws.rs.core.Response;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import org.jboss.logging.Logger;
 
 @Path("/avaliacao")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
 public class SubmitFeedbackFunction {
+  private static final Logger LOG = Logger.getLogger(SubmitFeedbackFunction.class);
   private static final DateTimeFormatter TS = DateTimeFormatter.ISO_INSTANT.withZone(ZoneOffset.UTC);
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -37,11 +39,15 @@ public class SubmitFeedbackFunction {
     var now = Instant.now();
     var urgencia = classificar(req.nota);
 
+    LOG.infof("feedback.received urgencia=%s nota=%d descricao_len=%d", urgencia.name(), req.nota, req.descricao.length());
+
     var saved = CosmosFeedbackRepository.fromEnv().save(req.descricao, req.nota, urgencia, now);
 
     if (urgencia == Urgencia.CRITICA) {
       tentarEnfileirarCritico(req.descricao, urgencia, now);
     }
+
+    LOG.infof("feedback.persisted id=%s day=%s urgencia=%s", saved.id(), saved.day(), saved.urgencia());
 
     return Response.status(Response.Status.CREATED)
         .entity(new AvaliacaoResponse(saved.id(), saved.descricao(), saved.nota(), saved.urgencia(), saved.createdAt()))
@@ -60,8 +66,10 @@ public class SubmitFeedbackFunction {
       var payload = new CriticalFeedbackMessage(descricao, urgencia.name(), TS.format(createdAt));
       var json = MAPPER.writeValueAsString(payload);
       AzureQueuePublisher.fromConnectionString(System.getenv("AZURE_STORAGE_CONNECTION_STRING"), queueName).sendBase64(json);
+      LOG.infof("feedback.queued queue=%s urgencia=%s", queueName, urgencia.name());
     } catch (Exception ignored) {
       // Intencional: fila não deve derrubar a ingestão.
+      LOG.warn("feedback.queue_failed");
     }
   }
 
