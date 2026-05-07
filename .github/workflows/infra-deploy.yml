@@ -9,37 +9,37 @@ on:
   workflow_dispatch:
     inputs:
       prefix:
-        description: "Prefixo dos recursos (ex.: tc4fb)"
+        description: Prefixo dos recursos (ex. tc4fb)
         required: true
-        default: "tc4fb"
+        default: tc4fb
       environment:
-        description: "Ambiente (RG da infra = rg-{prefix}-{environment}-infra)"
+        description: Ambiente (RG da infra = rg-{prefix}-{environment}-infra)
         required: true
-        default: "demo"
+        default: demo
       location:
-        description: "Região do Resource Group e recursos (ex.: eastus, westus2)"
+        description: Região do Resource Group e recursos (ex. westus2, centralus)
         required: true
-        default: "eastus"
+        default: westus2
       critical_queue_name:
-        description: "Nome da fila de feedback crítico"
+        description: Nome da fila de feedback crítico
         required: true
-        default: "critical-feedback"
+        default: critical-feedback
       mysql_database_name:
-        description: "Nome do database MySQL"
+        description: Nome do database MySQL
         required: true
-        default: "feedbackdb"
+        default: feedbackdb
       mysql_admin_login:
-        description: "Login admin do MySQL (sem @server)"
+        description: Login admin do MySQL (sem @server)
         required: true
-        default: "tc4admin"
+        default: tc4admin
       email_from:
-        description: "EMAIL_FROM (opcional; podes configurar depois na Function App)"
+        description: EMAIL_FROM (opcional; podes configurar depois na Function App)
         required: false
-        default: ""
+        default: ''
       admin_email_to:
-        description: "E-mail do administrador (alertas / relatório)"
+        description: E-mail do administrador (alertas / relatório)
         required: false
-        default: "RM367316@fiap.com.br"
+        default: ''
 
 permissions:
   id-token: write

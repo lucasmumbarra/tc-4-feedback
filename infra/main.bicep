@@ -110,7 +110,6 @@ resource mysql 'Microsoft.DBforMySQL/flexibleServers@2023-06-30' = {
     network: {
       publicNetworkAccess: 'Enabled'
     }
-    availabilityZone: '1'
   }
 }
 
@@ -155,7 +154,7 @@ resource functionApp 'Microsoft.Web/sites@2022-09-01' = {
         // Functions runtime
         { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
         { name: 'FUNCTIONS_WORKER_RUNTIME', value: 'java' }
-        { name: 'AzureWebJobsStorage', value: 'DefaultEndpointsProtocol=https;AccountName=${funcStorage.name};AccountKey=${listKeys(funcStorage.id, funcStorage.apiVersion).keys[0].value};EndpointSuffix=${environment().suffixes.storage}' }
+        { name: 'AzureWebJobsStorage', value: 'DefaultEndpointsProtocol=https;AccountName=${funcStorage.name};AccountKey=${funcStorage.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}' }
         { name: 'WEBSITE_RUN_FROM_PACKAGE', value: '1' }
 
         // Observability
@@ -165,7 +164,7 @@ resource functionApp 'Microsoft.Web/sites@2022-09-01' = {
         { name: 'XDT_MicrosoftApplicationInsights_Mode', value: 'recommended' }
 
         // App settings (Queue)
-        { name: 'AZURE_STORAGE_CONNECTION_STRING', value: 'DefaultEndpointsProtocol=https;AccountName=${storage.name};AccountKey=${listKeys(storage.id, storage.apiVersion).keys[0].value};EndpointSuffix=${environment().suffixes.storage}' }
+        { name: 'AZURE_STORAGE_CONNECTION_STRING', value: 'DefaultEndpointsProtocol=https;AccountName=${storage.name};AccountKey=${storage.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}' }
         { name: 'CRITICAL_FEEDBACK_QUEUE_NAME', value: criticalQueueName }
 
         // App settings (MySQL)
