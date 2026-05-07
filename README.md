@@ -61,6 +61,9 @@ A raiz HTTP da API está em `/api` (`quarkus.http.root-path`).
 
 Os workflows **Infra — deploy** e **Infra — destroy** só correm quando inicias manualmente: **Actions** → escolhe o workflow → **Run workflow**.
 
+- **RG do ACS/Email (manual)**: mantém o Resource Group do Azure Communication Services fora do ciclo de deploy/destroy da infra.
+- **RG da infra (automatizado)**: o workflow cria/usa `rg-{prefix}-{environment}-infra` e o destroy apaga esse RG.
+
 Detalhes dos recursos Bicep: [`infra/README.md`](infra/README.md).
 
 ### Pré-requisitos no Azure

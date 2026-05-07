@@ -13,7 +13,7 @@ on:
         required: true
         default: "tc4fb"
       environment:
-        description: "Ambiente (RG = rg-{prefix}-{environment})"
+        description: "Ambiente (RG da infra = rg-{prefix}-{environment}-infra)"
         required: true
         default: "demo"
       location:
@@ -46,7 +46,8 @@ permissions:
   contents: read
 
 env:
-  RG_NAME: rg-${{ inputs.prefix }}-${{ inputs.environment }}
+  # RG da infra separado do RG do ACS/Email (mantido manualmente).
+  RG_NAME: rg-${{ inputs.prefix }}-${{ inputs.environment }}-infra
 
 jobs:
   deploy:

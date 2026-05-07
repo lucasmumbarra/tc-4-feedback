@@ -8,6 +8,10 @@ on:
       resource_group_name:
         description: "Nome do Resource Group a apagar (ex.: rg-tc4fb-demo)"
         required: true
+        default: "rg-tc4fb-demo-infra"
+      protected_resource_group_name:
+        description: "RG protegido (não será apagado por este workflow)"
+        required: true
         default: "rg-tc4fb-demo"
       no_wait:
         description: "Delete em segundo plano (--no-wait)"
@@ -32,6 +36,12 @@ jobs:
         if: inputs.confirmation != 'DESTROY'
         run: |
           echo "::error::Escreve exatamente DESTROY no campo confirmation."
+          exit 1
+
+      - name: Bloquear RG protegido
+        if: inputs.resource_group_name == inputs.protected_resource_group_name
+        run: |
+          echo "::error::Este workflow não apaga o RG protegido (${{ inputs.protected_resource_group_name }})."
           exit 1
 
       - name: Azure Login (OIDC)
