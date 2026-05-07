@@ -17,9 +17,9 @@ on:
         required: true
         default: demo
       location:
-        description: Região do Resource Group e recursos (ex. westus2, centralus)
+        description: Região do Resource Group e recursos (ex. eastus)
         required: true
-        default: westus2
+        default: eastus
       critical_queue_name:
         description: Nome da fila de feedback crítico
         required: true
