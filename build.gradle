@@ -18,6 +18,7 @@ dependencies {
     implementation 'com.azure:azure-storage-queue:12.23.0'
     implementation 'com.azure:azure-communication-email:1.0.21'
     implementation 'com.azure:azure-data-tables:12.4.1'
+    implementation 'com.azure:azure-core-http-netty'
     testImplementation 'io.quarkus:quarkus-junit'
     testImplementation 'io.rest-assured:rest-assured'
 }

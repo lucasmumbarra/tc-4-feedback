@@ -6,7 +6,10 @@ import com.azure.data.tables.TableClientBuilder;
 import com.azure.data.tables.TableServiceClientBuilder;
 import com.azure.data.tables.models.ListEntitiesOptions;
 import com.azure.data.tables.models.TableEntity;
+import com.azure.core.http.HttpClient;
+import com.azure.core.http.netty.NettyAsyncHttpClientBuilder;
 import jakarta.enterprise.context.ApplicationScoped;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -24,8 +27,9 @@ public class TableFeedbackRepository {
     var conn = System.getenv("AZURE_STORAGE_CONNECTION_STRING");
     Objects.requireNonNull(conn, "AZURE_STORAGE_CONNECTION_STRING is required");
     var tableName = envOrDefault("FEEDBACK_TABLE_NAME", DEFAULT_TABLE);
-    new TableServiceClientBuilder().connectionString(conn).buildClient().createTableIfNotExists(tableName);
-    this.table = new TableClientBuilder().connectionString(conn).tableName(tableName).buildClient();
+    var httpClient = azureHttpClient();
+    new TableServiceClientBuilder().connectionString(conn).httpClient(httpClient).buildClient().createTableIfNotExists(tableName);
+    this.table = new TableClientBuilder().connectionString(conn).httpClient(httpClient).tableName(tableName).buildClient();
   }
 
   public FeedbackRow save(String descricao, int nota, Urgencia urgencia, Instant createdAt) {
@@ -72,6 +76,22 @@ public class TableFeedbackRepository {
   private static String envOrDefault(String name, String def) {
     var v = System.getenv(name);
     return (v == null || v.isBlank()) ? def : v;
+  }
+
+  private static HttpClient azureHttpClient() {
+    var timeoutSeconds = envOrDefaultInt("AZURE_HTTP_TIMEOUT_SECONDS", 10);
+    var timeout = Duration.ofSeconds(timeoutSeconds);
+    return new NettyAsyncHttpClientBuilder().responseTimeout(timeout).build();
+  }
+
+  private static int envOrDefaultInt(String name, int def) {
+    var v = System.getenv(name);
+    if (v == null || v.isBlank()) return def;
+    try {
+      return Integer.parseInt(v.trim());
+    } catch (Exception ignored) {
+      return def;
+    }
   }
 }
 
