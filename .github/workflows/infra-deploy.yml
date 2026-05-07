@@ -24,10 +24,26 @@ on:
         description: Nome da fila de feedback crítico
         required: true
         default: critical-feedback
+      feedback_ingest_queue_name:
+        description: Nome da fila de ingestão (async)
+        required: true
+        default: feedback-ingest
       feedback_table_name:
         description: Nome da tabela no Azure Table Storage
         required: true
         default: feedbacks
+      azure_http_timeout_seconds:
+        description: Timeout (segundos) do SDK Azure no runtime
+        required: true
+        default: "10"
+      function_app_base_name:
+        description: Nome base da Function App (ex. tc4fb-func)
+        required: true
+        default: tc4fb-func
+      function_app_use_unique_suffix:
+        description: Adicionar sufixo único no nome da Function App
+        required: true
+        default: "false"
       email_from:
         description: EMAIL_FROM (opcional; podes configurar depois na Function App)
         required: false
@@ -88,7 +104,11 @@ jobs:
           P_PREFIX: ${{ inputs.prefix }}
           P_LOCATION: ${{ inputs.location }}
           P_CRIT: ${{ inputs.critical_queue_name }}
+          P_INGEST: ${{ inputs.feedback_ingest_queue_name }}
           P_TABLE: ${{ inputs.feedback_table_name }}
+          P_TIMEOUT: ${{ inputs.azure_http_timeout_seconds }}
+          P_FUNC_BASE: ${{ inputs.function_app_base_name }}
+          P_FUNC_UNIQ: ${{ inputs.function_app_use_unique_suffix }}
           P_EMAIL_FROM: ${{ inputs.email_from }}
           P_ADMIN: ${{ inputs.admin_email_to }}
         run: |
@@ -104,7 +124,11 @@ jobs:
             "prefix": {"value": os.environ["P_PREFIX"]},
             "location": {"value": os.environ["P_LOCATION"]},
             "criticalQueueName": {"value": os.environ["P_CRIT"]},
+            "feedbackIngestQueueName": {"value": os.environ["P_INGEST"]},
             "feedbackTableName": {"value": os.environ["P_TABLE"]},
+            "azureHttpTimeoutSeconds": {"value": int(os.environ.get("P_TIMEOUT", "10"))},
+            "functionAppBaseName": {"value": os.environ.get("P_FUNC_BASE", "")},
+            "functionAppUseUniqueSuffix": {"value": str(os.environ.get("P_FUNC_UNIQ", "false")).lower() == "true"},
             "emailFrom": {"value": os.environ.get("P_EMAIL_FROM", "")},
             "adminEmailTo": {"value": os.environ.get("P_ADMIN", "")},
             "acsEmailConnectionString": {"value": req("ACS")},

@@ -34,6 +34,10 @@ public class TableFeedbackRepository {
 
   public FeedbackRow save(String descricao, int nota, Urgencia urgencia, Instant createdAt) {
     var id = java.util.UUID.randomUUID().toString();
+    return saveWithId(id, descricao, nota, urgencia, createdAt);
+  }
+
+  public FeedbackRow saveWithId(String id, String descricao, int nota, Urgencia urgencia, Instant createdAt) {
     var day = LocalDate.ofInstant(createdAt, ZoneOffset.UTC).toString(); // yyyy-MM-dd
 
     var e = new TableEntity(day, id);

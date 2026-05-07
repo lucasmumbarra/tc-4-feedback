@@ -1,12 +1,10 @@
 package br.com.fiap.tc.feedback.function.http;
 
-import br.com.fiap.tc.feedback.application.dto.message.CriticalFeedbackMessage;
+import br.com.fiap.tc.feedback.application.dto.message.FeedbackIngestMessage;
 import br.com.fiap.tc.feedback.application.dto.request.AvaliacaoRequest;
 import br.com.fiap.tc.feedback.domain.model.Urgencia;
-import br.com.fiap.tc.feedback.infrastructure.database.TableFeedbackRepository;
 import br.com.fiap.tc.feedback.infrastructure.messaging.publisher.AzureQueuePublisher;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -16,6 +14,7 @@ import jakarta.ws.rs.core.Response;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.UUID;
 import org.jboss.logging.Logger;
 
 @Path("/avaliacao")
@@ -25,8 +24,6 @@ public class SubmitFeedbackFunction {
   private static final Logger LOG = Logger.getLogger(SubmitFeedbackFunction.class);
   private static final DateTimeFormatter TS = DateTimeFormatter.ISO_INSTANT.withZone(ZoneOffset.UTC);
   private static final ObjectMapper MAPPER = new ObjectMapper();
-
-  @Inject TableFeedbackRepository feedbackRepository;
 
   @POST
   public Response criar(AvaliacaoRequest req) {
@@ -41,19 +38,18 @@ public class SubmitFeedbackFunction {
 
     var now = Instant.now();
     var urgencia = classificar(req.nota);
+    var id = UUID.randomUUID().toString();
 
     LOG.infof("feedback.received urgencia=%s nota=%d descricao_len=%d", urgencia.name(), req.nota, req.descricao.length());
 
-    var saved = feedbackRepository.save(req.descricao, req.nota, urgencia, now);
-
-    if (urgencia == Urgencia.CRITICA) {
-      tentarEnfileirarCritico(req.descricao, urgencia, now);
+    if (!enfileirarIngest(id, req.descricao, req.nota, urgencia, now)) {
+      return Response.status(Response.Status.SERVICE_UNAVAILABLE)
+          .entity(new ErrorResponse("unable to enqueue feedback"))
+          .build();
     }
 
-    LOG.infof("feedback.persisted id=%s day=%s urgencia=%s", saved.id(), saved.day(), saved.urgencia());
-
     return Response.status(Response.Status.CREATED)
-        .entity(new AvaliacaoResponse(saved.id(), saved.descricao(), saved.nota(), saved.urgencia(), saved.createdAt()))
+        .entity(new AvaliacaoResponse(id, req.descricao, req.nota, urgencia.name(), TS.format(now)))
         .build();
   }
 
@@ -63,16 +59,18 @@ public class SubmitFeedbackFunction {
     return Urgencia.OK;
   }
 
-  private static void tentarEnfileirarCritico(String descricao, Urgencia urgencia, Instant createdAt) {
-    var queueName = envOrDefault("CRITICAL_FEEDBACK_QUEUE_NAME", AzureQueuePublisher.DEFAULT_CRITICAL_QUEUE);
+  private static boolean enfileirarIngest(String id, String descricao, int nota, Urgencia urgencia, Instant createdAt) {
+    var queueName = envOrDefault("FEEDBACK_INGEST_QUEUE_NAME", "feedback-ingest");
     try {
-      var payload = new CriticalFeedbackMessage(descricao, urgencia.name(), TS.format(createdAt));
+      var payload = new FeedbackIngestMessage(id, descricao, nota, urgencia.name(), TS.format(createdAt));
       var json = MAPPER.writeValueAsString(payload);
-      AzureQueuePublisher.fromConnectionString(System.getenv("AZURE_STORAGE_CONNECTION_STRING"), queueName).sendBase64(json);
-      LOG.infof("feedback.queued queue=%s urgencia=%s", queueName, urgencia.name());
+      AzureQueuePublisher.fromConnectionString(System.getenv("AZURE_STORAGE_CONNECTION_STRING"), queueName)
+          .sendBase64(json);
+      LOG.infof("feedback.enqueued queue=%s id=%s urgencia=%s", queueName, id, urgencia.name());
+      return true;
     } catch (Exception ignored) {
-      // Intencional: fila não deve derrubar a ingestão.
-      LOG.warn("feedback.queue_failed");
+      LOG.warnf("feedback.enqueue_failed queue=%s id=%s", queueName, id);
+      return false;
     }
   }
 
