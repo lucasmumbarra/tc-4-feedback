@@ -1,8 +1,11 @@
 name: Deploy Java project to Azure Function App
 
+permissions:
+  read-all
+
 on:
   push:
-    branches: [ "main" ]
+    branches: [ main ]
 
 env:
   AZURE_FUNCTIONAPP_NAME: tc4fb-func-u6sgesvkkh2ie
@@ -22,6 +25,9 @@ jobs:
         with:
           distribution: ${{ env.DISTRIBUTION }}
           java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x ./gradlew
 
       - name: Build with Gradle
         run: ./gradlew build
