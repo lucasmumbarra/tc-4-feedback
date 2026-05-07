@@ -7,10 +7,9 @@
     "ApplicationInsightsAgent_EXTENSION_VERSION": "~3",
     "AZURE_STORAGE_CONNECTION_STRING": "",
     "CRITICAL_FEEDBACK_QUEUE_NAME": "critical-feedback",
-    "COSMOS_ENDPOINT": "",
-    "COSMOS_KEY": "",
-    "COSMOS_DATABASE": "feedbackdb",
-    "COSMOS_CONTAINER": "feedbacks",
+    "QUARKUS_DATASOURCE_JDBC_URL": "jdbc:mysql://localhost:3306/feedbackdb?sslMode=DISABLED&serverTimezone=UTC",
+    "QUARKUS_DATASOURCE_USERNAME": "root",
+    "QUARKUS_DATASOURCE_PASSWORD": "",
     "ACS_EMAIL_CONNECTION_STRING": "",
     "EMAIL_FROM": "",
     "ADMIN_EMAIL_TO": ""

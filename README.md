@@ -1,13 +1,13 @@
 # Plataforma de Feedback (Tech Challenge – Fase 4)
 
-API serverless no Azure: **Quarkus** em **Azure Functions** (HTTP, fila e timer), **Cosmos DB**, **Storage Queue** e e-mail com **Azure Communication Services**. A infraestrutura está em **Bicep** (`infra/main.bicep`) e sobe com **GitHub Actions** (disparo manual).
+API serverless no Azure: **Quarkus** em **Azure Functions** (HTTP, fila e timer), **MySQL**, **Storage Queue** e e-mail com **Azure Communication Services**. A infraestrutura está em **Bicep** (`infra/main.bicep`) e sobe com **GitHub Actions** (disparo manual).
 
 ## Fluxo da aplicação
 
-1. `POST /api/avaliacao` — valida e grava no Cosmos  
+1. `POST /api/avaliacao` — valida e grava no MySQL  
 2. Nota **CRÍTICA** (0–3) — envia mensagem para a fila  
 3. Queue trigger — envia e-mail de urgência (ACS)  
-4. Timer trigger — relatório semanal (Cosmos + ACS)
+4. Timer trigger — relatório semanal (MySQL + ACS)
 
 ### Corpo do `POST /api/avaliacao`
 
@@ -23,7 +23,7 @@ API serverless no Azure: **Quarkus** em **Azure Functions** (HTTP, fila e timer)
 |------|------------|
 | Runtime | Java 21, Quarkus |
 | HTTP / Functions | `quarkus-azure-functions-http`, Azure Functions Java |
-| Dados | Azure Cosmos DB (serverless) |
+| Dados | Azure Database for MySQL (Flexible Server) |
 | Fila | Azure Storage Queue |
 | E-mail | Azure Communication Services (Email) |
 | IaC | Bicep |
@@ -42,7 +42,7 @@ API serverless no Azure: **Quarkus** em **Azure Functions** (HTTP, fila e timer)
 No Azure, o Bicep preenche a maior parte na Function App. Para desenvolvimento local, usa `local.settings.json` (não commits com segredos reais):
 
 - `AZURE_STORAGE_CONNECTION_STRING`, `CRITICAL_FEEDBACK_QUEUE_NAME` (default `critical-feedback`)
-- `COSMOS_ENDPOINT`, `COSMOS_KEY`, `COSMOS_DATABASE` (`feedbackdb`), `COSMOS_CONTAINER` (`feedbacks`)
+- `QUARKUS_DATASOURCE_JDBC_URL`, `QUARKUS_DATASOURCE_USERNAME`, `QUARKUS_DATASOURCE_PASSWORD`
 - `ACS_EMAIL_CONNECTION_STRING`, `EMAIL_FROM`, `ADMIN_EMAIL_TO`
 - Opcionais: `APPLICATIONINSIGHTS_CONNECTION_STRING`, `AzureWebJobsStorage`
 
@@ -88,7 +88,7 @@ Guia Microsoft: [Deploy Bicep com GitHub Actions](https://learn.microsoft.com/az
 
 Workflow **Infra — destroy**: indica o nome do Resource Group, escreve **DESTROY** no campo de confirmação e executa. Opcionalmente usa delete em segundo plano (*no wait*).
 
-Se o **Cosmos** falhar por capacidade na região, volta a correr o deploy com outra **location** (por exemplo `westus2`).
+Se o **MySQL** falhar por quota/capacidade na região, volta a correr o deploy com outra **location** (por exemplo `westus2`).
 
 ## Monitoramento
 

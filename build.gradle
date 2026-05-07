@@ -15,9 +15,11 @@ dependencies {
     implementation 'io.quarkus:quarkus-rest-jackson'
     implementation 'io.quarkus:quarkus-arc'
     implementation 'com.microsoft.azure.functions:azure-functions-java-library'
-    implementation 'com.azure:azure-cosmos:4.65.0'
     implementation 'com.azure:azure-storage-queue:12.23.0'
     implementation 'com.azure:azure-communication-email:1.0.21'
+    implementation 'io.quarkus:quarkus-hibernate-orm-panache'
+    implementation 'io.quarkus:quarkus-jdbc-mysql'
+    implementation 'io.quarkus:quarkus-flyway'
     testImplementation 'io.quarkus:quarkus-junit'
     testImplementation 'io.rest-assured:rest-assured'
 }

@@ -6,7 +6,7 @@ O parâmetro **`location`** é passado pelo workflow **Infra — deploy** (input
 
 Recursos provisionados:
 - Azure Storage Account (Queue) + fila `critical-feedback`
-- Azure Cosmos DB (serverless) + database/container
+- Azure Database for MySQL (Flexible Server) + database
 - Application Insights
 - Function App (Consumption) com Application Settings para o projeto
 
