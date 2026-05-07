@@ -50,6 +50,7 @@ env:
 
 jobs:
   deploy:
+    environment: Actions
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

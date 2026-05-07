@@ -25,6 +25,7 @@ permissions:
 
 jobs:
   destroy:
+    environment: Actions
     runs-on: ubuntu-latest
     steps:
       - name: Validar confirmação
