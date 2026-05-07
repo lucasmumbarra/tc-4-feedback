@@ -1,11 +1,52 @@
-name: infra-deploy
+# Deploy do Resource Group + infra/main.bicep (manual).
+# Pré-requisitos no Azure: federated credential (OIDC) + secrets no repositório.
+# Ver: https://learn.microsoft.com/azure/azure-resource-manager/bicep/deploy-github-actions
+# Action: https://github.com/marketplace/actions/deploy-azure-resource-manager-arm-template
+
+name: Infra — deploy
 
 on:
   workflow_dispatch:
+    inputs:
+      prefix:
+        description: "Prefixo dos recursos (ex.: tc4fb)"
+        required: true
+        default: "tc4fb"
+      environment:
+        description: "Ambiente (RG = rg-{prefix}-{environment})"
+        required: true
+        default: "demo"
+      location:
+        description: "Região do Resource Group e recursos (ex.: eastus, westus2)"
+        required: true
+        default: "eastus"
+      critical_queue_name:
+        description: "Nome da fila de feedback crítico"
+        required: true
+        default: "critical-feedback"
+      cosmos_database_name:
+        description: "Nome da base Cosmos"
+        required: true
+        default: "feedbackdb"
+      cosmos_container_name:
+        description: "Nome do container Cosmos"
+        required: true
+        default: "feedbacks"
+      email_from:
+        description: "EMAIL_FROM (opcional; podes configurar depois na Function App)"
+        required: false
+        default: ""
+      admin_email_to:
+        description: "E-mail do administrador (alertas / relatório)"
+        required: false
+        default: "RM367316@fiap.com.br"
 
 permissions:
   id-token: write
   contents: read
+
+env:
+  RG_NAME: rg-${{ inputs.prefix }}-${{ inputs.environment }}
 
 jobs:
   deploy:
@@ -14,36 +55,94 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Azure login (OIDC)
+      - name: Azure Login (OIDC)
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Create resource group
-        run: |
-          RG="rg-${{ vars.AZURE_PREFIX }}-${{ vars.AZURE_ENVIRONMENT }}"
-          az group create --name "$RG" --location "${{ vars.AZURE_LOCATION }}"
-          echo "RG=$RG" >> $GITHUB_ENV
+      - name: Criar Resource Group (idempotente)
+        uses: Azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            set -e
+            az group create --name "${{ env.RG_NAME }}" --location "${{ inputs.location }}"
 
-      - name: Deploy Bicep (resource group scope)
-        run: |
-          az deployment group create \
-            --resource-group "$RG" \
-            --name "deploy-${{ github.run_id }}" \
-            --template-file infra/main.bicep \
-            --parameters \
-              prefix="${{ vars.AZURE_PREFIX }}" \
-              location="${{ vars.AZURE_LOCATION }}" \
-              criticalQueueName="critical-feedback" \
-              cosmosDatabaseName="feedbackdb" \
-              cosmosContainerName="feedbacks" \
-              emailFrom="${{ secrets.EMAIL_FROM }}" \
-              adminEmailTo="${{ secrets.ADMIN_EMAIL_TO }}" \
-              acsEmailConnectionString="${{ secrets.ACS_EMAIL_CONNECTION_STRING }}"
+      - name: Registar resource providers (primeira subscrição pode demorar)
+        uses: Azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            set -e
+            for ns in Microsoft.OperationalInsights Microsoft.Insights Microsoft.DocumentDB; do
+              reg=$(az provider show -n "$ns" --query registrationState -o tsv 2>/dev/null || true)
+              if [ "$reg" != "Registered" ]; then
+                echo "A registar $ns ..."
+                az provider register -n "$ns" --wait || true
+              fi
+            done
 
-      - name: Outputs
+      - name: Gerar ficheiro de parâmetros (ACS em secret)
+        env:
+          ACS: ${{ secrets.ACS_EMAIL_CONNECTION_STRING }}
+          P_PREFIX: ${{ inputs.prefix }}
+          P_LOCATION: ${{ inputs.location }}
+          P_CRIT: ${{ inputs.critical_queue_name }}
+          P_CDB: ${{ inputs.cosmos_database_name }}
+          P_CCT: ${{ inputs.cosmos_container_name }}
+          P_EMAIL_FROM: ${{ inputs.email_from }}
+          P_ADMIN: ${{ inputs.admin_email_to }}
         run: |
-          az deployment group show --resource-group "$RG" --name "deploy-${{ github.run_id }}" --query properties.outputs
+          set -e
+          python3 << 'PY'
+          import json, os
+          def req(k):
+            v = os.environ.get(k)
+            if v is None or str(v).strip() == "":
+              raise SystemExit(f"Missing or empty: {k}")
+            return v
+          params = {
+            "prefix": {"value": os.environ["P_PREFIX"]},
+            "location": {"value": os.environ["P_LOCATION"]},
+            "criticalQueueName": {"value": os.environ["P_CRIT"]},
+            "cosmosDatabaseName": {"value": os.environ["P_CDB"]},
+            "cosmosContainerName": {"value": os.environ["P_CCT"]},
+            "emailFrom": {"value": os.environ.get("P_EMAIL_FROM", "")},
+            "adminEmailTo": {"value": os.environ.get("P_ADMIN", "")},
+            "acsEmailConnectionString": {"value": req("ACS")},
+          }
+          with open("deploy-params.json", "w", encoding="utf-8") as f:
+            json.dump(
+              {
+                "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+                "contentVersion": "1.0.0.0",
+                "parameters": params,
+              },
+              f,
+              indent=2,
+            )
+          PY
 
+      - name: Deploy Bicep
+        uses: azure/arm-deploy@v2
+        with:
+          subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          resourceGroupName: ${{ env.RG_NAME }}
+          template: ./infra/main.bicep
+          parameters: ./deploy-params.json
+          deploymentName: deploy-${{ inputs.prefix }}-${{ inputs.environment }}
+          failOnStdErr: false
+
+      - name: Mostrar outputs
+        uses: Azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            set -e
+            az deployment group show \
+              --resource-group "${{ env.RG_NAME }}" \
+              --name "deploy-${{ inputs.prefix }}-${{ inputs.environment }}" \
+              --query properties.outputs \
+              -o json

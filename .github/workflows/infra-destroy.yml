@@ -1,7 +1,23 @@
-name: infra-destroy
+# Apaga um Resource Group completo (manual + confirmação explícita).
+
+name: Infra — destroy
 
 on:
   workflow_dispatch:
+    inputs:
+      resource_group_name:
+        description: "Nome do Resource Group a apagar (ex.: rg-tc4fb-demo)"
+        required: true
+        default: "rg-tc4fb-demo"
+      no_wait:
+        description: "Delete em segundo plano (--no-wait)"
+        type: boolean
+        required: true
+        default: false
+      confirmation:
+        description: "Escreve DESTROY para confirmar apagar o RG e tudo dentro"
+        required: true
+        type: string
 
 permissions:
   id-token: write
@@ -11,16 +27,34 @@ jobs:
   destroy:
     runs-on: ubuntu-latest
     steps:
-      - name: Azure login (OIDC)
+      - name: Validar confirmação
+        if: inputs.confirmation != 'DESTROY'
+        run: |
+          echo "::error::Escreve exatamente DESTROY no campo confirmation."
+          exit 1
+
+      - name: Azure Login (OIDC)
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Delete resource group
-        run: |
-          RG="rg-${{ vars.AZURE_PREFIX }}-${{ vars.AZURE_ENVIRONMENT }}"
-          echo "Deleting $RG ..."
-          az group delete --name "$RG" --yes --no-wait
-
+      - name: Apagar Resource Group
+        uses: Azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            set -e
+            RG="${{ inputs.resource_group_name }}"
+            if [ "$(az group exists --name "$RG" -o tsv)" != "true" ]; then
+              echo "Resource Group '$RG' não existe. Nada a fazer."
+              exit 0
+            fi
+            if [ "${{ inputs.no_wait }}" = "true" ]; then
+              az group delete --name "$RG" --yes --no-wait
+              echo "Delete iniciado (no-wait)."
+            else
+              az group delete --name "$RG" --yes
+              echo "Delete concluído."
+            fi

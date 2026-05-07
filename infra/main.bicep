@@ -3,7 +3,7 @@ targetScope = 'resourceGroup'
 @description('Prefixo para nomear recursos (use algo curto, ex: tc4fb)')
 param prefix string
 
-@description('Região Azure (ex: brazilsouth)')
+@description('Regiao dos recursos (input location do workflow Infra deploy; ex.: eastus, westus2).')
 param location string = resourceGroup().location
 
 @description('Nome da fila para feedback crítico')
@@ -25,9 +25,10 @@ param adminEmailTo string = ''
 @secure()
 param acsEmailConnectionString string
 
+// Nomes de Storage: max 24 caracteres (min 3). prefix+funcstg+uniqueString estourava; usar fstg.
 var storageName = toLower(replace('${prefix}stg${uniqueString(resourceGroup().id)}', '-', ''))
 var cosmosName = toLower(replace('${prefix}cosmos${uniqueString(resourceGroup().id)}', '-', ''))
-var funcStorageName = toLower(replace('${prefix}funcstg${uniqueString(resourceGroup().id)}', '-', ''))
+var funcStorageName = toLower(replace('${prefix}fstg${uniqueString(resourceGroup().id)}', '-', ''))
 var appInsightsName = '${prefix}-appi'
 var planName = '${prefix}-plan'
 var functionAppName = toLower(replace('${prefix}-func-${uniqueString(resourceGroup().id)}', '_', '-'))
@@ -89,6 +90,8 @@ resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2023-09-15' = {
       {
         locationName: location
         failoverPriority: 0
+        // Evita conta zonal (AZ) em regioes com alta procura / cotas (ex.: East US no Azure for Students).
+        isZoneRedundant: false
       }
     ]
     capabilities: [
@@ -165,31 +168,31 @@ resource functionApp 'Microsoft.Web/sites@2022-09-01' = {
     siteConfig: {
       appSettings: [
         // Functions runtime
-        { name: 'FUNCTIONS_EXTENSION_VERSION'; value: '~4' }
-        { name: 'FUNCTIONS_WORKER_RUNTIME'; value: 'java' }
-        { name: 'AzureWebJobsStorage'; value: 'DefaultEndpointsProtocol=https;AccountName=${funcStorage.name};AccountKey=${listKeys(funcStorage.id, funcStorage.apiVersion).keys[0].value};EndpointSuffix=${environment().suffixes.storage}' }
-        { name: 'WEBSITE_RUN_FROM_PACKAGE'; value: '1' }
+        { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
+        { name: 'FUNCTIONS_WORKER_RUNTIME', value: 'java' }
+        { name: 'AzureWebJobsStorage', value: 'DefaultEndpointsProtocol=https;AccountName=${funcStorage.name};AccountKey=${listKeys(funcStorage.id, funcStorage.apiVersion).keys[0].value};EndpointSuffix=${environment().suffixes.storage}' }
+        { name: 'WEBSITE_RUN_FROM_PACKAGE', value: '1' }
 
         // Observability
-        { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'; value: appInsights.properties.ConnectionString }
-        { name: 'APPINSIGHTS_INSTRUMENTATIONKEY'; value: appInsights.properties.InstrumentationKey }
-        { name: 'ApplicationInsightsAgent_EXTENSION_VERSION'; value: '~3' }
-        { name: 'XDT_MicrosoftApplicationInsights_Mode'; value: 'recommended' }
+        { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsights.properties.ConnectionString }
+        { name: 'APPINSIGHTS_INSTRUMENTATIONKEY', value: appInsights.properties.InstrumentationKey }
+        { name: 'ApplicationInsightsAgent_EXTENSION_VERSION', value: '~3' }
+        { name: 'XDT_MicrosoftApplicationInsights_Mode', value: 'recommended' }
 
         // App settings (Queue)
-        { name: 'AZURE_STORAGE_CONNECTION_STRING'; value: 'DefaultEndpointsProtocol=https;AccountName=${storage.name};AccountKey=${listKeys(storage.id, storage.apiVersion).keys[0].value};EndpointSuffix=${environment().suffixes.storage}' }
-        { name: 'CRITICAL_FEEDBACK_QUEUE_NAME'; value: criticalQueueName }
+        { name: 'AZURE_STORAGE_CONNECTION_STRING', value: 'DefaultEndpointsProtocol=https;AccountName=${storage.name};AccountKey=${listKeys(storage.id, storage.apiVersion).keys[0].value};EndpointSuffix=${environment().suffixes.storage}' }
+        { name: 'CRITICAL_FEEDBACK_QUEUE_NAME', value: criticalQueueName }
 
         // App settings (Cosmos)
-        { name: 'COSMOS_ENDPOINT'; value: cosmos.properties.documentEndpoint }
-        { name: 'COSMOS_KEY'; value: listKeys(cosmos.id, cosmos.apiVersion).primaryMasterKey }
-        { name: 'COSMOS_DATABASE'; value: cosmosDatabaseName }
-        { name: 'COSMOS_CONTAINER'; value: cosmosContainerName }
+        { name: 'COSMOS_ENDPOINT', value: cosmos.properties.documentEndpoint }
+        { name: 'COSMOS_KEY', value: listKeys(cosmos.id, cosmos.apiVersion).primaryMasterKey }
+        { name: 'COSMOS_DATABASE', value: cosmosDatabaseName }
+        { name: 'COSMOS_CONTAINER', value: cosmosContainerName }
 
         // App settings (ACS Email)
-        { name: 'ACS_EMAIL_CONNECTION_STRING'; value: acsEmailConnectionString }
-        { name: 'EMAIL_FROM'; value: emailFrom }
-        { name: 'ADMIN_EMAIL_TO'; value: adminEmailTo }
+        { name: 'ACS_EMAIL_CONNECTION_STRING', value: acsEmailConnectionString }
+        { name: 'EMAIL_FROM', value: emailFrom }
+        { name: 'ADMIN_EMAIL_TO', value: adminEmailTo }
       ]
     }
   }

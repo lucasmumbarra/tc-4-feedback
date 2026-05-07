@@ -2,6 +2,8 @@
 
 Este diretório contém a infraestrutura como código em **Bicep**, pensada para subir e destruir rapidamente para testes/demonstração.
 
+O parâmetro **`location`** é passado pelo workflow **Infra — deploy** (input *location*, típico **`eastus`** ou **`westus2`** se houver problemas de capacidade).
+
 Recursos provisionados:
 - Azure Storage Account (Queue) + fila `critical-feedback`
 - Azure Cosmos DB (serverless) + database/container
