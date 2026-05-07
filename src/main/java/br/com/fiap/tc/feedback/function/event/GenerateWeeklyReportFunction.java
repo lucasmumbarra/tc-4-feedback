@@ -1,7 +1,7 @@
 package br.com.fiap.tc.feedback.function.event;
 
 import br.com.fiap.tc.feedback.domain.model.Urgencia;
-import br.com.fiap.tc.feedback.infrastructure.database.FeedbackRepository;
+import br.com.fiap.tc.feedback.infrastructure.database.TableFeedbackRepository;
 import br.com.fiap.tc.feedback.infrastructure.external.email.AcsEmailSender;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.annotation.FunctionName;
@@ -28,9 +28,7 @@ public class GenerateWeeklyReportFunction {
 
     var end = LocalDate.now(ZoneOffset.UTC);
     var start = end.minusDays(6);
-    var startTs = start.atStartOfDay().toInstant(ZoneOffset.UTC);
-    var endTs = end.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC).minusMillis(1);
-    var feedbacks = CDI.current().select(FeedbackRepository.class).get().listBetweenInclusive(startTs, endTs);
+    var feedbacks = CDI.current().select(TableFeedbackRepository.class).get().listBetweenInclusive(start, end);
 
     var porDia = new java.util.TreeMap<LocalDate, Integer>();
     var porUrgencia = new EnumMap<Urgencia, Integer>(Urgencia.class);
@@ -38,10 +36,10 @@ public class GenerateWeeklyReportFunction {
 
     long somaNotas = 0;
     for (var f : feedbacks) {
-      var dia = LocalDate.ofInstant(f.createdAt, ZoneOffset.UTC);
+      var dia = LocalDate.parse(f.day());
       porDia.merge(dia, 1, Integer::sum);
-      porUrgencia.merge(f.urgencia, 1, Integer::sum);
-      somaNotas += f.nota;
+      porUrgencia.merge(Urgencia.valueOf(f.urgencia()), 1, Integer::sum);
+      somaNotas += f.nota();
     }
     double media = feedbacks.isEmpty() ? 0.0 : (double) somaNotas / (double) feedbacks.size();
 

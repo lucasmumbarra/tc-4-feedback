@@ -24,14 +24,10 @@ on:
         description: Nome da fila de feedback crítico
         required: true
         default: critical-feedback
-      mysql_database_name:
-        description: Nome do database MySQL
+      feedback_table_name:
+        description: Nome da tabela no Azure Table Storage
         required: true
-        default: feedbackdb
-      mysql_admin_login:
-        description: Login admin do MySQL (sem @server)
-        required: true
-        default: tc4admin
+        default: feedbacks
       email_from:
         description: EMAIL_FROM (opcional; podes configurar depois na Function App)
         required: false
@@ -78,7 +74,7 @@ jobs:
           azcliversion: latest
           inlineScript: |
             set -e
-            for ns in Microsoft.OperationalInsights Microsoft.Insights Microsoft.DBforMySQL; do
+            for ns in Microsoft.OperationalInsights Microsoft.Insights Microsoft.Storage; do
               reg=$(az provider show -n "$ns" --query registrationState -o tsv 2>/dev/null || true)
               if [ "$reg" != "Registered" ]; then
                 echo "A registar $ns ..."
@@ -89,12 +85,10 @@ jobs:
       - name: Gerar ficheiro de parâmetros (ACS em secret)
         env:
           ACS: ${{ secrets.ACS_EMAIL_CONNECTION_STRING }}
-          MYSQL_ADMIN_PASSWORD: ${{ secrets.MYSQL_ADMIN_PASSWORD }}
           P_PREFIX: ${{ inputs.prefix }}
           P_LOCATION: ${{ inputs.location }}
           P_CRIT: ${{ inputs.critical_queue_name }}
-          P_MYSQL_DB: ${{ inputs.mysql_database_name }}
-          P_MYSQL_LOGIN: ${{ inputs.mysql_admin_login }}
+          P_TABLE: ${{ inputs.feedback_table_name }}
           P_EMAIL_FROM: ${{ inputs.email_from }}
           P_ADMIN: ${{ inputs.admin_email_to }}
         run: |
@@ -110,9 +104,7 @@ jobs:
             "prefix": {"value": os.environ["P_PREFIX"]},
             "location": {"value": os.environ["P_LOCATION"]},
             "criticalQueueName": {"value": os.environ["P_CRIT"]},
-            "mysqlDatabaseName": {"value": os.environ["P_MYSQL_DB"]},
-            "mysqlAdminLogin": {"value": os.environ["P_MYSQL_LOGIN"]},
-            "mysqlAdminPassword": {"value": req("MYSQL_ADMIN_PASSWORD")},
+            "feedbackTableName": {"value": os.environ["P_TABLE"]},
             "emailFrom": {"value": os.environ.get("P_EMAIL_FROM", "")},
             "adminEmailTo": {"value": os.environ.get("P_ADMIN", "")},
             "acsEmailConnectionString": {"value": req("ACS")},

@@ -9,15 +9,8 @@ param location string = resourceGroup().location
 @description('Nome da fila para feedback crítico')
 param criticalQueueName string = 'critical-feedback'
 
-@description('Nome do database no MySQL')
-param mysqlDatabaseName string = 'feedbackdb'
-
-@description('Login admin do MySQL (sem @server)')
-param mysqlAdminLogin string = 'tc4admin'
-
-@description('Senha admin do MySQL')
-@secure()
-param mysqlAdminPassword string
+@description('Nome da tabela no Azure Table Storage')
+param feedbackTableName string = 'feedbacks'
 
 @description('E-mail remetente (deve estar configurado no ACS Email)')
 param emailFrom string = ''
@@ -31,7 +24,6 @@ param acsEmailConnectionString string
 
 // Nomes de Storage: max 24 caracteres (min 3). prefix+funcstg+uniqueString estourava; usar fstg.
 var storageName = toLower(replace('${prefix}stg${uniqueString(resourceGroup().id)}', '-', ''))
-var mysqlName = toLower(replace('${prefix}mysql${uniqueString(resourceGroup().id)}', '-', ''))
 var funcStorageName = toLower(replace('${prefix}fstg${uniqueString(resourceGroup().id)}', '-', ''))
 var appInsightsName = '${prefix}-appi'
 var planName = '${prefix}-plan'
@@ -83,52 +75,6 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   }
 }
 
-// Azure Database for MySQL (Flexible Server) - mais simples possível
-resource mysql 'Microsoft.DBforMySQL/flexibleServers@2023-06-30' = {
-  name: mysqlName
-  location: location
-  sku: {
-    name: 'Standard_B1ms'
-    tier: 'Burstable'
-  }
-  properties: {
-    version: '8.0'
-    administratorLogin: mysqlAdminLogin
-    administratorLoginPassword: mysqlAdminPassword
-    backup: {
-      // O serviço exige retenção mínima (mesmo que seja descartável)
-      backupRetentionDays: 7
-      geoRedundantBackup: 'Disabled'
-    }
-    storage: {
-      storageSizeGB: 20
-      autoGrow: 'Disabled'
-    }
-    highAvailability: {
-      mode: 'Disabled'
-    }
-    network: {
-      publicNetworkAccess: 'Enabled'
-    }
-  }
-}
-
-resource mysqlDb 'Microsoft.DBforMySQL/flexibleServers/databases@2023-06-30' = {
-  parent: mysql
-  name: mysqlDatabaseName
-  properties: {}
-}
-
-// Permite acesso a partir de serviços Azure (inclui Function App)
-resource mysqlAllowAzure 'Microsoft.DBforMySQL/flexibleServers/firewallRules@2023-06-30' = {
-  parent: mysql
-  name: 'AllowAzureServices'
-  properties: {
-    startIpAddress: '0.0.0.0'
-    endIpAddress: '0.0.0.0'
-  }
-}
-
 resource plan 'Microsoft.Web/serverfarms@2022-09-01' = {
   name: planName
   location: location
@@ -167,10 +113,8 @@ resource functionApp 'Microsoft.Web/sites@2022-09-01' = {
         { name: 'AZURE_STORAGE_CONNECTION_STRING', value: 'DefaultEndpointsProtocol=https;AccountName=${storage.name};AccountKey=${storage.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}' }
         { name: 'CRITICAL_FEEDBACK_QUEUE_NAME', value: criticalQueueName }
 
-        // App settings (MySQL)
-        { name: 'QUARKUS_DATASOURCE_JDBC_URL', value: 'jdbc:mysql://${mysql.properties.fullyQualifiedDomainName}:3306/${mysqlDatabaseName}?sslMode=REQUIRED&serverTimezone=UTC' }
-        { name: 'QUARKUS_DATASOURCE_USERNAME', value: mysqlAdminLogin }
-        { name: 'QUARKUS_DATASOURCE_PASSWORD', value: mysqlAdminPassword }
+        // App settings (Table Storage)
+        { name: 'FEEDBACK_TABLE_NAME', value: feedbackTableName }
 
         // App settings (ACS Email)
         { name: 'ACS_EMAIL_CONNECTION_STRING', value: acsEmailConnectionString }
@@ -184,8 +128,6 @@ resource functionApp 'Microsoft.Web/sites@2022-09-01' = {
 output resourceGroupName string = resourceGroup().name
 output locationOut string = location
 output functionAppName string = functionApp.name
-output mysqlServerName string = mysql.name
-output mysqlFqdn string = mysql.properties.fullyQualifiedDomainName
-output mysqlDatabase string = mysqlDb.name
+output feedbackTableNameOut string = feedbackTableName
 output storageAccountName string = storage.name
 

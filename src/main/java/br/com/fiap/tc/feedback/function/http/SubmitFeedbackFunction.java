@@ -3,12 +3,10 @@ package br.com.fiap.tc.feedback.function.http;
 import br.com.fiap.tc.feedback.application.dto.message.CriticalFeedbackMessage;
 import br.com.fiap.tc.feedback.application.dto.request.AvaliacaoRequest;
 import br.com.fiap.tc.feedback.domain.model.Urgencia;
-import br.com.fiap.tc.feedback.infrastructure.database.FeedbackEntity;
-import br.com.fiap.tc.feedback.infrastructure.database.FeedbackRepository;
+import br.com.fiap.tc.feedback.infrastructure.database.TableFeedbackRepository;
 import br.com.fiap.tc.feedback.infrastructure.messaging.publisher.AzureQueuePublisher;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -28,10 +26,9 @@ public class SubmitFeedbackFunction {
   private static final DateTimeFormatter TS = DateTimeFormatter.ISO_INSTANT.withZone(ZoneOffset.UTC);
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
-  @Inject FeedbackRepository feedbackRepository;
+  @Inject TableFeedbackRepository feedbackRepository;
 
   @POST
-  @Transactional
   public Response criar(AvaliacaoRequest req) {
     if (req == null || req.descricao == null || req.descricao.isBlank()) {
       return Response.status(Response.Status.BAD_REQUEST).entity(new ErrorResponse("descricao is required")).build();
@@ -47,22 +44,16 @@ public class SubmitFeedbackFunction {
 
     LOG.infof("feedback.received urgencia=%s nota=%d descricao_len=%d", urgencia.name(), req.nota, req.descricao.length());
 
-    var entity = new FeedbackEntity();
-    entity.id = java.util.UUID.randomUUID().toString();
-    entity.descricao = req.descricao;
-    entity.nota = req.nota;
-    entity.urgencia = urgencia;
-    entity.createdAt = now;
-    feedbackRepository.persist(entity);
+    var saved = feedbackRepository.save(req.descricao, req.nota, urgencia, now);
 
     if (urgencia == Urgencia.CRITICA) {
       tentarEnfileirarCritico(req.descricao, urgencia, now);
     }
 
-    LOG.infof("feedback.persisted id=%s urgencia=%s", entity.id, entity.urgencia.name());
+    LOG.infof("feedback.persisted id=%s day=%s urgencia=%s", saved.id(), saved.day(), saved.urgencia());
 
     return Response.status(Response.Status.CREATED)
-        .entity(new AvaliacaoResponse(entity.id, entity.descricao, entity.nota, entity.urgencia.name(), entity.createdAt.toString()))
+        .entity(new AvaliacaoResponse(saved.id(), saved.descricao(), saved.nota(), saved.urgencia(), saved.createdAt()))
         .build();
   }
 
