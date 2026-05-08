@@ -13,9 +13,11 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.Objects;
+import org.jboss.logging.Logger;
 
 @ApplicationScoped
 public class TableFeedbackRepository {
+  private static final Logger LOG = Logger.getLogger(TableFeedbackRepository.class);
   private static final String DEFAULT_TABLE = "feedbacks";
 
   private final TableClient table;
@@ -27,6 +29,7 @@ public class TableFeedbackRepository {
     var tableName = envOrDefault("FEEDBACK_TABLE_NAME", DEFAULT_TABLE);
     var httpClient = azureHttpClient();
 
+    LOG.infof("tableRepo.init table=%s timeoutSeconds=%d", tableName, envOrDefaultInt("AZURE_HTTP_TIMEOUT_SECONDS", 10));
     new TableServiceClientBuilder()
         .connectionString(conn)
         .httpClient(httpClient)
@@ -54,7 +57,10 @@ public class TableFeedbackRepository {
     e.addProperty("nota", nota);
     e.addProperty("urgencia", urgencia.name());
     e.addProperty("createdAt", createdAt.toString()); // ISO-8601 UTC
+
+    LOG.infof("tableRepo.save start partitionKey=%s rowKey=%s urgencia=%s", day, id, urgencia.name());
     table.createEntity(e);
+    LOG.infof("tableRepo.save success partitionKey=%s rowKey=%s", day, id);
 
     return new FeedbackRow(id, day, descricao, nota, urgencia.name(), createdAt.toString());
   }

@@ -27,6 +27,7 @@ jobs:
         with:
           distribution: ${{ env.DISTRIBUTION }}
           java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
 
       - name: Build with Maven
         run: mvn -B package -Dquarkus.azure-functions.app-name=${{ env.AZURE_FUNCTIONAPP_NAME }}
