@@ -3,14 +3,11 @@ targetScope = 'resourceGroup'
 @description('Prefixo para nomear recursos (use algo curto, ex: tc4fb)')
 param prefix string
 
+@description('Ambiente para compor nomes (ex.: demo, dev, prod).')
+param environment string = 'demo'
+
 @description('Regiao dos recursos (input location do workflow Infra deploy; ex.: eastus, westus2).')
 param location string = resourceGroup().location
-
-@description('Nome da fila para feedback crítico')
-param criticalQueueName string = 'critical-feedback'
-
-@description('Nome da fila para ingestão de feedback (async)')
-param feedbackIngestQueueName string = 'feedback-ingest'
 
 @description('Nome da tabela no Azure Table Storage')
 param feedbackTableName string = 'feedbacks'
@@ -24,27 +21,22 @@ param functionAppBaseName string = '${prefix}-func'
 @description('Adicionar sufixo único no nome da Function App (útil quando precisa de nomes globais sem conflito)')
 param functionAppUseUniqueSuffix bool = false
 
-@description('E-mail remetente (deve estar configurado no ACS Email)')
-param emailFrom string = ''
-
-@description('E-mail do(s) administrador(es) que recebem alertas/relatórios')
-param adminEmailTo string = ''
-
-@description('Connection string do Azure Communication Services (Email)')
-@secure()
-param acsEmailConnectionString string
-
-// Nomes de Storage: max 24 caracteres (min 3). prefix+funcstg+uniqueString estourava; usar fstg.
-var storageName = toLower(replace('${prefix}stg${uniqueString(resourceGroup().id)}', '-', ''))
-var funcStorageName = toLower(replace('${prefix}fstg${uniqueString(resourceGroup().id)}', '-', ''))
+// Nomes de Storage: max 24 caracteres (min 3).
+// Importante: Storage Account name precisa ser globalmente único. Aqui fica determinístico por prefix+ambiente.
+// Convenção:
+// - Table Storage: {prefix}{environment}tblstg
+// - Functions runtime storage: {prefix}{environment}fnstg
+// - (futuro) Queue storage: {prefix}{environment}qstg
+var tableStorageName = toLower(replace('${prefix}${environment}tblstg', '-', ''))
+var funcStorageName = toLower(replace('${prefix}${environment}fnstg', '-', ''))
 var appInsightsName = '${prefix}-appi'
 var planName = '${prefix}-plan'
 var functionAppName = functionAppUseUniqueSuffix
   ? toLower(replace('${functionAppBaseName}-${uniqueString(resourceGroup().id)}', '_', '-'))
   : toLower(replace(functionAppBaseName, '_', '-'))
 
-resource storage 'Microsoft.Storage/storageAccounts@2023-01-01' = {
-  name: storageName
+resource tableStorage 'Microsoft.Storage/storageAccounts@2023-01-01' = {
+  name: tableStorageName
   location: location
   sku: {
     name: 'Standard_LRS'
@@ -56,23 +48,8 @@ resource storage 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   }
 }
 
-resource queueService 'Microsoft.Storage/storageAccounts/queueServices@2023-01-01' = {
-  parent: storage
-  name: 'default'
-}
-
-resource feedbackIngestQueue 'Microsoft.Storage/storageAccounts/queueServices/queues@2023-01-01' = {
-  parent: queueService
-  name: feedbackIngestQueueName
-}
-
-resource criticalQueue 'Microsoft.Storage/storageAccounts/queueServices/queues@2023-01-01' = {
-  parent: queueService
-  name: criticalQueueName
-}
-
 resource tableService 'Microsoft.Storage/storageAccounts/tableServices@2023-01-01' = {
-  parent: storage
+  parent: tableStorage
   name: 'default'
 }
 
@@ -81,7 +58,7 @@ resource feedbackTable 'Microsoft.Storage/storageAccounts/tableServices/tables@2
   name: feedbackTableName
 }
 
-// Storage dedicado para a Function App (requisito do Functions runtime)
+// Storage dedicado para o runtime do Azure Functions (AzureWebJobsStorage).
 resource funcStorage 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   name: funcStorageName
   location: location
@@ -138,21 +115,12 @@ resource functionApp 'Microsoft.Web/sites@2022-09-01' = {
         { name: 'ApplicationInsightsAgent_EXTENSION_VERSION', value: '~3' }
         { name: 'XDT_MicrosoftApplicationInsights_Mode', value: 'recommended' }
 
-        // App settings (Queue)
-        { name: 'AZURE_STORAGE_CONNECTION_STRING', value: 'DefaultEndpointsProtocol=https;AccountName=${storage.name};AccountKey=${storage.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}' }
-        { name: 'FEEDBACK_INGEST_QUEUE_NAME', value: feedbackIngestQueueName }
-        { name: 'CRITICAL_FEEDBACK_QUEUE_NAME', value: criticalQueueName }
-
         // App settings (Table Storage)
+        { name: 'AZURE_STORAGE_CONNECTION_STRING', value: 'DefaultEndpointsProtocol=https;AccountName=${tableStorage.name};AccountKey=${tableStorage.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}' }
         { name: 'FEEDBACK_TABLE_NAME', value: feedbackTableName }
 
         // App settings (SDK timeouts)
         { name: 'AZURE_HTTP_TIMEOUT_SECONDS', value: string(azureHttpTimeoutSeconds) }
-
-        // App settings (ACS Email)
-        { name: 'ACS_EMAIL_CONNECTION_STRING', value: acsEmailConnectionString }
-        { name: 'EMAIL_FROM', value: emailFrom }
-        { name: 'ADMIN_EMAIL_TO', value: adminEmailTo }
       ]
     }
   }
@@ -162,6 +130,6 @@ output resourceGroupName string = resourceGroup().name
 output locationOut string = location
 output functionAppName string = functionApp.name
 output feedbackTableNameOut string = feedbackTableName
-output feedbackIngestQueueNameOut string = feedbackIngestQueueName
-output storageAccountName string = storage.name
+output tableStorageAccountName string = tableStorage.name
+output funcStorageAccountName string = funcStorage.name
 

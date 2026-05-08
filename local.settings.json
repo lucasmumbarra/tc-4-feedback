@@ -1,17 +1,10 @@
 {
   "IsEncrypted": false,
   "Values": {
-    "AzureWebJobsStorage": "",
     "FUNCTIONS_WORKER_RUNTIME": "java",
-    "APPLICATIONINSIGHTS_CONNECTION_STRING": "",
-    "ApplicationInsightsAgent_EXTENSION_VERSION": "~3",
+    "AzureWebJobsStorage": "",
     "AZURE_STORAGE_CONNECTION_STRING": "",
-    "FEEDBACK_INGEST_QUEUE_NAME": "feedback-ingest",
-    "CRITICAL_FEEDBACK_QUEUE_NAME": "critical-feedback",
     "FEEDBACK_TABLE_NAME": "feedbacks",
-    "AZURE_HTTP_TIMEOUT_SECONDS": "10",
-    "ACS_EMAIL_CONNECTION_STRING": "",
-    "EMAIL_FROM": "",
-    "ADMIN_EMAIL_TO": ""
+    "AZURE_HTTP_TIMEOUT_SECONDS": "10"
   }
 }

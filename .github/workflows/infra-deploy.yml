@@ -20,14 +20,6 @@ on:
         description: Região do Resource Group e recursos (ex. eastus)
         required: true
         default: eastus
-      critical_queue_name:
-        description: Nome da fila de feedback crítico
-        required: true
-        default: critical-feedback
-      feedback_ingest_queue_name:
-        description: Nome da fila de ingestão (async)
-        required: true
-        default: feedback-ingest
       feedback_table_name:
         description: Nome da tabela no Azure Table Storage
         required: true
@@ -44,14 +36,6 @@ on:
         description: Adicionar sufixo único no nome da Function App
         required: true
         default: "false"
-      email_from:
-        description: EMAIL_FROM (opcional; podes configurar depois na Function App)
-        required: false
-        default: ''
-      admin_email_to:
-        description: E-mail do administrador (alertas / relatório)
-        required: false
-        default: ''
 
 permissions:
   id-token: write
@@ -100,38 +84,25 @@ jobs:
 
       - name: Gerar ficheiro de parâmetros (ACS em secret)
         env:
-          ACS: ${{ secrets.ACS_EMAIL_CONNECTION_STRING }}
           P_PREFIX: ${{ inputs.prefix }}
+          P_ENV: ${{ inputs.environment }}
           P_LOCATION: ${{ inputs.location }}
-          P_CRIT: ${{ inputs.critical_queue_name }}
-          P_INGEST: ${{ inputs.feedback_ingest_queue_name }}
           P_TABLE: ${{ inputs.feedback_table_name }}
           P_TIMEOUT: ${{ inputs.azure_http_timeout_seconds }}
           P_FUNC_BASE: ${{ inputs.function_app_base_name }}
           P_FUNC_UNIQ: ${{ inputs.function_app_use_unique_suffix }}
-          P_EMAIL_FROM: ${{ inputs.email_from }}
-          P_ADMIN: ${{ inputs.admin_email_to }}
         run: |
           set -e
           python3 << 'PY'
           import json, os
-          def req(k):
-            v = os.environ.get(k)
-            if v is None or str(v).strip() == "":
-              raise SystemExit(f"Missing or empty: {k}")
-            return v
           params = {
             "prefix": {"value": os.environ["P_PREFIX"]},
+            "environment": {"value": os.environ["P_ENV"]},
             "location": {"value": os.environ["P_LOCATION"]},
-            "criticalQueueName": {"value": os.environ["P_CRIT"]},
-            "feedbackIngestQueueName": {"value": os.environ["P_INGEST"]},
             "feedbackTableName": {"value": os.environ["P_TABLE"]},
             "azureHttpTimeoutSeconds": {"value": int(os.environ.get("P_TIMEOUT", "10"))},
             "functionAppBaseName": {"value": os.environ.get("P_FUNC_BASE", "")},
             "functionAppUseUniqueSuffix": {"value": str(os.environ.get("P_FUNC_UNIQ", "false")).lower() == "true"},
-            "emailFrom": {"value": os.environ.get("P_EMAIL_FROM", "")},
-            "adminEmailTo": {"value": os.environ.get("P_ADMIN", "")},
-            "acsEmailConnectionString": {"value": req("ACS")},
           }
           with open("deploy-params.json", "w", encoding="utf-8") as f:
             json.dump(

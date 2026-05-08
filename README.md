@@ -1,100 +1,50 @@
 # Plataforma de Feedback (Tech Challenge – Fase 4)
 
-API serverless no Azure: **Quarkus** em **Azure Functions** (HTTP, fila e timer), **MySQL**, **Storage Queue** e e-mail com **Azure Communication Services**. A infraestrutura está em **Bicep** (`infra/main.bicep`) e sobe com **GitHub Actions** (disparo manual).
+Este repositório foi reiniciado **em partes**. Nesta primeira etapa temos apenas o mínimo para funcionar na nuvem:
 
-## Fluxo da aplicação
+- **1 Azure Function HTTP (Java 21)**: `POST /api/avaliacao`
+- Persistência em **Azure Table Storage** (uma tabela dentro de um Storage Account)
+- Infra mínima em **Bicep** (`infra/main.bicep`)
+- Deploy automatizado via **GitHub Actions** (mantendo os workflows em `/.github/workflows`)
 
-1. `POST /api/avaliacao` — valida e grava no MySQL  
-2. Nota **CRÍTICA** (0–3) — envia mensagem para a fila  
-3. Queue trigger — envia e-mail de urgência (ACS)  
-4. Timer trigger — relatório semanal (MySQL + ACS)
+## Endpoint
 
-### Corpo do `POST /api/avaliacao`
+`POST /api/avaliacao`
 
 ```json
 { "descricao": "string", "nota": 0 }
 ```
 
-**nota** (0–10): 0–3 → `CRITICA`; 4–6 → `ATENCAO`; 7–10 → `OK`.
-
-## Stack
-
-| Área | Tecnologia |
-|------|------------|
-| Runtime | Java 21, Quarkus |
-| HTTP / Functions | `quarkus-azure-functions-http`, Azure Functions Java |
-| Dados | Azure Database for MySQL (Flexible Server) |
-| Fila | Azure Storage Queue |
-| E-mail | Azure Communication Services (Email) |
-| IaC | Bicep |
-| CI/CD infra | GitHub Actions (`azure/login` OIDC + `azure/arm-deploy`) |
-
-## Funções
-
-| Trigger | Nome no Azure | Classe |
-|---------|---------------|--------|
-| HTTP | — | `SubmitFeedbackFunction` → `POST /api/avaliacao` |
-| Queue | `processCriticalFeedback` | `ProcessCriticalFeedbackFunction` |
-| Timer | `relatorioSemanal` (segundas 09:00 UTC) | `GenerateWeeklyReportFunction` |
+Regras:
+- **descricao** é obrigatória
+- **nota** deve estar entre 0 e 10
+- urgência: 0–3 → `CRITICA`; 4–6 → `ATENCAO`; 7–10 → `OK`
 
 ## Variáveis de ambiente
 
-No Azure, o Bicep preenche a maior parte na Function App. Para desenvolvimento local, usa `local.settings.json` (não commits com segredos reais):
+Para desenvolvimento local (`local.settings.json`) e no Azure (App Settings):
 
-- `AZURE_STORAGE_CONNECTION_STRING`, `CRITICAL_FEEDBACK_QUEUE_NAME` (default `critical-feedback`)
-- `QUARKUS_DATASOURCE_JDBC_URL`, `QUARKUS_DATASOURCE_USERNAME`, `QUARKUS_DATASOURCE_PASSWORD`
-- `ACS_EMAIL_CONNECTION_STRING`, `EMAIL_FROM`, `ADMIN_EMAIL_TO`
-- Opcionais: `APPLICATIONINSIGHTS_CONNECTION_STRING`, `AzureWebJobsStorage`
+- `AZURE_STORAGE_CONNECTION_STRING` (obrigatória)
+- `FEEDBACK_TABLE_NAME` (default `feedbacks`)
+- `AZURE_HTTP_TIMEOUT_SECONDS` (default `10`)
 
-## Desenvolvimento local
+## Build
 
 Requisito: **Java 21**.
 
+- **Local**:
+
 ```bash
-./gradlew test
-./gradlew quarkusDev
+mvn -B package
 ```
 
-A raiz HTTP da API está em `/api` (`quarkus.http.root-path`).
+Isso gera o pacote em `target/azure-functions/<appName>`.
 
-## Infraestrutura (GitHub Actions)
+## Infra (GitHub Actions)
 
-Os workflows **Infra — deploy** e **Infra — destroy** só correm quando inicias manualmente: **Actions** → escolhe o workflow → **Run workflow**.
+Use o workflow **Infra — deploy** para subir um Resource Group e os recursos mínimos:
 
-- **RG do ACS/Email (manual)**: mantém o Resource Group do Azure Communication Services fora do ciclo de deploy/destroy da infra.
-- **RG da infra (automatizado)**: o workflow cria/usa `rg-{prefix}-{environment}-infra` e o destroy apaga esse RG.
+- Storage Account (com Table service + tabela)
+- Function App (Consumption)
+- Application Insights
 
-Detalhes dos recursos Bicep: [`infra/README.md`](infra/README.md).
-
-### Pré-requisitos no Azure
-
-- **Azure Communication Services** com e-mail configurado (domínio/remetente no Portal). O Bicep precisa da connection string; não cria o recurso ACS.
-- Identidade para o GitHub: **Microsoft Entra app** (ou managed identity) com **federated credential** (OIDC) a confiar no repositório, e **permissão** na subscription ou no resource group (por exemplo *Contributor*).
-
-### Secrets do repositório
-
-Em **Settings → Secrets and variables → Actions**:
-
-| Secret | Descrição |
-|--------|-----------|
-| `AZURE_CLIENT_ID` | Application (client) ID |
-| `AZURE_TENANT_ID` | Directory (tenant) ID |
-| `AZURE_SUBSCRIPTION_ID` | Subscription ID |
-| `ACS_EMAIL_CONNECTION_STRING` | Connection string do ACS (Email) |
-
-Guia Microsoft: [Deploy Bicep com GitHub Actions](https://learn.microsoft.com/azure/azure-resource-manager/bicep/deploy-github-actions). Action: [azure/arm-deploy](https://github.com/marketplace/actions/deploy-azure-resource-manager-arm-template).
-
-### Destroy
-
-Workflow **Infra — destroy**: indica o nome do Resource Group, escreve **DESTROY** no campo de confirmação e executa. Opcionalmente usa delete em segundo plano (*no wait*).
-
-Se o **MySQL** falhar por quota/capacidade na região, volta a correr o deploy com outra **location** (por exemplo `westus2`).
-
-## Monitoramento
-
-Application Insights está ligado à Function App no Bicep. No Portal: **Monitor** / **Log stream**; em Application Insights, **Logs**.
-
-## Referências
-
-- [Quarkus](https://quarkus.io/)
-- [Azure Functions HTTP (Quarkus)](https://quarkus.io/guides/azure-functions-http)

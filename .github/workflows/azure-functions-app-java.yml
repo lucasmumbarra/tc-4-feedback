@@ -5,8 +5,7 @@ permissions:
   id-token: write
 
 on:
-  push:
-    branches: [ main ]
+  workflow_dispatch:
 
 env:
   AZURE_FUNCTIONAPP_NAME: tc4fb-func
@@ -29,18 +28,15 @@ jobs:
           distribution: ${{ env.DISTRIBUTION }}
           java-version: ${{ env.JAVA_VERSION }}
 
-      - name: Make Gradle wrapper executable
-        run: chmod +x ./gradlew
-
-      - name: Build with Gradle
-        run: ./gradlew build
+      - name: Build with Maven
+        run: mvn -B package -Dquarkus.azure-functions.app-name=${{ env.AZURE_FUNCTIONAPP_NAME }}
 
       - name: Deploy (Publish Profile)
         uses: Azure/functions-action@v1
         if: ${{ env.PUBLISH_PROFILE != '' }}
         with:
           app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
-          package: build/azure-functions/${{ env.AZURE_FUNCTIONAPP_NAME }}
+          package: target/azure-functions/${{ env.AZURE_FUNCTIONAPP_NAME }}
           publish-profile: ${{ env.PUBLISH_PROFILE }}
 
       - name: Azure Login (OIDC)
@@ -56,5 +52,5 @@ jobs:
         if: ${{ env.PUBLISH_PROFILE == '' }}
         with:
           app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
-          package: build/azure-functions/${{ env.AZURE_FUNCTIONAPP_NAME }}
+          package: target/azure-functions/${{ env.AZURE_FUNCTIONAPP_NAME }}
 
