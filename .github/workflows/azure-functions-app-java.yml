@@ -9,7 +9,7 @@ on:
     branches: [ main ]
 
 env:
-  AZURE_FUNCTIONAPP_NAME: tc4fb-func-u6sgesvkkh2ie
+  AZURE_FUNCTIONAPP_NAME: tc4fb-func
   DISTRIBUTION: zulu
   JAVA_VERSION: "21"
 
