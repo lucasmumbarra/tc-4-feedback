@@ -88,13 +88,16 @@ resource plan 'Microsoft.Web/serverfarms@2022-09-01' = {
     name: 'Y1'
     tier: 'Dynamic'
   }
-  properties: {}
+  properties: {
+    // Necessário para plano Linux (Consumption).
+    reserved: true
+  }
 }
 
 resource functionApp 'Microsoft.Web/sites@2022-09-01' = {
   name: functionAppName
   location: location
-  kind: 'functionapp'
+  kind: 'functionapp,linux'
   identity: {
     type: 'SystemAssigned'
   }
@@ -102,10 +105,13 @@ resource functionApp 'Microsoft.Web/sites@2022-09-01' = {
     serverFarmId: plan.id
     httpsOnly: true
     siteConfig: {
+      // Garante runtime Java 21 no Linux.
+      linuxFxVersion: 'Java|21'
       appSettings: [
         // Functions runtime
         { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
         { name: 'FUNCTIONS_WORKER_RUNTIME', value: 'java' }
+        { name: 'JAVA_VERSION', value: '21' }
         { name: 'AzureWebJobsStorage', value: 'DefaultEndpointsProtocol=https;AccountName=${funcStorage.name};AccountKey=${funcStorage.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}' }
         { name: 'WEBSITE_RUN_FROM_PACKAGE', value: '1' }
 
