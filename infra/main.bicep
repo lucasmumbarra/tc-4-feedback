@@ -4,7 +4,7 @@ targetScope = 'resourceGroup'
 param prefix string
 
 @description('Ambiente para compor nomes (ex.: demo, dev, prod).')
-param environment string = 'demo'
+param envName string = 'demo'
 
 @description('Regiao dos recursos (input location do workflow Infra deploy; ex.: eastus, westus2).')
 param location string = resourceGroup().location
@@ -24,11 +24,11 @@ param functionAppUseUniqueSuffix bool = false
 // Nomes de Storage: max 24 caracteres (min 3).
 // Importante: Storage Account name precisa ser globalmente único. Aqui fica determinístico por prefix+ambiente.
 // Convenção:
-// - Table Storage: {prefix}{environment}tblstg
-// - Functions runtime storage: {prefix}{environment}fnstg
-// - (futuro) Queue storage: {prefix}{environment}qstg
-var tableStorageName = toLower(replace('${prefix}${environment}tblstg', '-', ''))
-var funcStorageName = toLower(replace('${prefix}${environment}fnstg', '-', ''))
+// - Table Storage: {prefix}{envName}tblstg
+// - Functions runtime storage: {prefix}{envName}fnstg
+// - (futuro) Queue storage: {prefix}{envName}qstg
+var tableStorageName = toLower(replace('${prefix}${envName}tblstg', '-', ''))
+var funcStorageName = toLower(replace('${prefix}${envName}fnstg', '-', ''))
 var appInsightsName = '${prefix}-appi'
 var planName = '${prefix}-plan'
 var functionAppName = functionAppUseUniqueSuffix

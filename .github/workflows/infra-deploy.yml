@@ -97,7 +97,7 @@ jobs:
           import json, os
           params = {
             "prefix": {"value": os.environ["P_PREFIX"]},
-            "environment": {"value": os.environ["P_ENV"]},
+            "envName": {"value": os.environ["P_ENV"]},
             "location": {"value": os.environ["P_LOCATION"]},
             "feedbackTableName": {"value": os.environ["P_TABLE"]},
             "azureHttpTimeoutSeconds": {"value": int(os.environ.get("P_TIMEOUT", "10"))},
