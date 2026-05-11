@@ -1,0 +1,45 @@
+package br.com.fiap.tc.feedback.function.queue;
+
+import br.com.fiap.tc.feedback.application.dto.messaging.CriticalFeedbackMessage;
+import br.com.fiap.tc.feedback.domain.model.Urgencia;
+import br.com.fiap.tc.feedback.infrastructure.email.AdminEmailNotifier;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.microsoft.azure.functions.ExecutionContext;
+import com.microsoft.azure.functions.annotation.FunctionName;
+import com.microsoft.azure.functions.annotation.QueueTrigger;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import org.jboss.logging.Logger;
+
+@ApplicationScoped
+public class ProcessCriticalFeedbackFunction {
+  private static final Logger LOG = Logger.getLogger(ProcessCriticalFeedbackFunction.class);
+
+  @Inject ObjectMapper mapper;
+  @Inject AdminEmailNotifier notifier;
+
+  @FunctionName("processCriticalFeedback")
+  public void process(
+      @QueueTrigger(
+              name = "msg",
+              queueName = "%CRITICAL_FEEDBACK_QUEUE_NAME%",
+              connection = "AZURE_STORAGE_CONNECTION_STRING")
+          String rawMessage,
+      final ExecutionContext context) {
+    LOG.infof("processCriticalFeedback.start invocationId=%s", context.getInvocationId());
+    try {
+      var m = mapper.readValue(rawMessage, CriticalFeedbackMessage.class);
+      if (m == null || m.urgencia == null || !Urgencia.CRITICA.name().equals(m.urgencia)) {
+        LOG.infof("processCriticalFeedback.skip urgencia=%s", m == null ? "null" : m.urgencia);
+        return;
+      }
+      var desc = m.descricao == null ? "" : m.descricao;
+      var when = m.createdAt == null ? "" : m.createdAt;
+      notifier.notifyCritical(desc, Urgencia.CRITICA, when);
+      LOG.infof("processCriticalFeedback.done id=%s", m.id);
+    } catch (Exception e) {
+      LOG.errorf(e, "processCriticalFeedback.error");
+      throw new RuntimeException(e);
+    }
+  }
+}

@@ -5,6 +5,8 @@
     "AzureWebJobsStorage": "",
     "AZURE_STORAGE_CONNECTION_STRING": "",
     "FEEDBACK_TABLE_NAME": "feedbacks",
+    "CRITICAL_FEEDBACK_QUEUE_NAME": "critical-feedback",
+    "WEEKLY_REPORT_CONTAINER": "relatorios",
     "AZURE_HTTP_TIMEOUT_SECONDS": "10"
   }
 }

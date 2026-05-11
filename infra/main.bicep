@@ -58,6 +58,34 @@ resource feedbackTable 'Microsoft.Storage/storageAccounts/tableServices/tables@2
   name: feedbackTableName
 }
 
+resource queueService 'Microsoft.Storage/storageAccounts/queueServices@2023-01-01' = {
+  parent: tableStorage
+  name: 'default'
+}
+
+resource criticalFeedbackQueue 'Microsoft.Storage/storageAccounts/queueServices/queues@2023-01-01' = {
+  parent: queueService
+  name: 'critical-feedback'
+}
+
+resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01' = {
+  parent: tableStorage
+  name: 'default'
+  properties: {
+    deleteRetentionPolicy: {
+      enabled: false
+    }
+  }
+}
+
+resource reportsContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = {
+  parent: blobService
+  name: 'relatorios'
+  properties: {
+    publicAccess: 'None'
+  }
+}
+
 // Storage dedicado para o runtime do Azure Functions (AzureWebJobsStorage).
 resource funcStorage 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   name: funcStorageName
@@ -124,6 +152,10 @@ resource functionApp 'Microsoft.Web/sites@2022-09-01' = {
         // App settings (Table Storage)
         { name: 'AZURE_STORAGE_CONNECTION_STRING', value: 'DefaultEndpointsProtocol=https;AccountName=${tableStorage.name};AccountKey=${tableStorage.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}' }
         { name: 'FEEDBACK_TABLE_NAME', value: feedbackTableName }
+
+        // Mensageria e relatórios (mesmo storage account da tabela)
+        { name: 'CRITICAL_FEEDBACK_QUEUE_NAME', value: criticalFeedbackQueue.name }
+        { name: 'WEEKLY_REPORT_CONTAINER', value: reportsContainer.name }
 
         // App settings (SDK timeouts)
         { name: 'AZURE_HTTP_TIMEOUT_SECONDS', value: string(azureHttpTimeoutSeconds) }

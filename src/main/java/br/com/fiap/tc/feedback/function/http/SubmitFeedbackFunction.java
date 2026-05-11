@@ -1,9 +1,13 @@
 package br.com.fiap.tc.feedback.function.http;
 
+import br.com.fiap.tc.feedback.application.dto.messaging.CriticalFeedbackMessage;
 import br.com.fiap.tc.feedback.application.dto.request.AvaliacaoRequest;
 import br.com.fiap.tc.feedback.application.dto.response.AvaliacaoResponse;
 import br.com.fiap.tc.feedback.domain.model.Urgencia;
+import br.com.fiap.tc.feedback.domain.policy.UrgenciaPolicy;
 import br.com.fiap.tc.feedback.infrastructure.database.TableFeedbackRepository;
+import br.com.fiap.tc.feedback.infrastructure.messaging.CriticalFeedbackQueueProducer;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
@@ -25,6 +29,8 @@ public class SubmitFeedbackFunction {
   private static final DateTimeFormatter TS = DateTimeFormatter.ISO_INSTANT.withZone(ZoneOffset.UTC);
 
   @Inject TableFeedbackRepository repo;
+  @Inject CriticalFeedbackQueueProducer criticalQueue;
+  @Inject ObjectMapper mapper;
 
   @POST
   public Response criar(AvaliacaoRequest req) {
@@ -50,7 +56,7 @@ public class SubmitFeedbackFunction {
     }
 
     var createdAt = Instant.now();
-    var urgencia = classificar(req.nota);
+    var urgencia = UrgenciaPolicy.classify(req.nota);
     LOG.infof("submitFeedback.classified traceId=%s urgencia=%s", traceId, urgencia.name());
 
     try {
@@ -58,6 +64,20 @@ public class SubmitFeedbackFunction {
 
       var resp =
           new AvaliacaoResponse(row.id(), row.descricao(), row.nota(), row.urgencia(), TS.format(createdAt));
+
+      if (urgencia == Urgencia.CRITICA) {
+        try {
+          var q = new CriticalFeedbackMessage();
+          q.id = row.id();
+          q.descricao = row.descricao();
+          q.nota = row.nota();
+          q.urgencia = row.urgencia();
+          q.createdAt = row.createdAt();
+          criticalQueue.enqueueJson(mapper.writeValueAsString(q));
+        } catch (Exception ex) {
+          LOG.errorf(ex, "submitFeedback.enqueue_failed traceId=%s id=%s", traceId, row.id());
+        }
+      }
 
       var elapsedMs = (System.nanoTime() - startNs) / 1_000_000L;
       LOG.infof("submitFeedback.success traceId=%s id=%s elapsedMs=%d", traceId, row.id(), elapsedMs);
@@ -69,12 +89,6 @@ public class SubmitFeedbackFunction {
           .entity(new ErrorResponse("internal error"))
           .build();
     }
-  }
-
-  private static Urgencia classificar(int nota) {
-    if (nota <= 3) return Urgencia.CRITICA;
-    if (nota <= 6) return Urgencia.ATENCAO;
-    return Urgencia.OK;
   }
 
   record ErrorResponse(String message) {}

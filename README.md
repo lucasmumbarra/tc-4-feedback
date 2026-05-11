@@ -1,11 +1,17 @@
 # Plataforma de Feedback (Tech Challenge – Fase 4)
 
-Este repositório foi reiniciado **em partes**. Nesta primeira etapa temos apenas o mínimo para funcionar na nuvem:
+Aplicação **serverless em Java 21 (Quarkus)** no **Azure Functions**, alinhada ao enunciado: receber avaliações, notificar administradores em casos críticos e gerar **relatório semanal** com agregações. A persistência é **Azure Table Storage** (não se usa Cosmos DB).
 
-- **1 Azure Function HTTP (Java 21)**: `POST /api/avaliacao`
-- Persistência em **Azure Table Storage** (uma tabela dentro de um Storage Account)
-- Infra mínima em **Bicep** (`infra/main.bicep`)
-- Deploy automatizado via **GitHub Actions** (mantendo os workflows em `/.github/workflows`)
+## Arquitetura (resumo)
+
+| Função Azure | Gatilho | Responsabilidade |
+|--------------|---------|-------------------|
+| `submitFeedback` | HTTP `POST /api/avaliacao` | Valida payload, classifica urgência, grava na tabela e **enfileira** mensagens só para `CRITICA`. |
+| `processCriticalFeedback` | **Azure Queue** (`critical-feedback`) | Lê a mensagem e dispara **notificação** ao administrador (SendGrid ou log simulado). |
+| `generateWeeklyReport` | **Timer** (segundas, 09:00 UTC) | Lê feedbacks dos últimos 7 dias (UTC), calcula **média**, contagens por dia e por urgência, grava ficheiro no **Blob** `relatorios/`. |
+| `QuarkusHttp` | HTTP (catch-all) | Runtime REST Quarkus (não expõe regra de negócio dedicada). |
+
+Observabilidade: **Application Insights** (connection string nas app settings da Function App). Segurança: **HTTPS**, storage sem acesso público anónimo, **Managed Identity** na app (evolução natural para RBAC em secrets/Key Vault fora do escopo mínimo).
 
 ## Endpoint
 
@@ -16,35 +22,53 @@ Este repositório foi reiniciado **em partes**. Nesta primeira etapa temos apena
 ```
 
 Regras:
-- **descricao** é obrigatória
-- **nota** deve estar entre 0 e 10
-- urgência: 0–3 → `CRITICA`; 4–6 → `ATENCAO`; 7–10 → `OK`
+
+- **descricao** obrigatória (não vazia).
+- **nota** entre 0 e 10.
+- Urgência: 0–3 → `CRITICA`; 4–6 → `ATENCAO`; 7–10 → `OK`.
 
 ## Variáveis de ambiente
 
-Para desenvolvimento local (`local.settings.json`) e no Azure (App Settings):
+Obrigatórias (local `local.settings.json` e Azure **Configuration**):
 
-- `AZURE_STORAGE_CONNECTION_STRING` (obrigatória)
-- `FEEDBACK_TABLE_NAME` (default `feedbacks`)
-- `AZURE_HTTP_TIMEOUT_SECONDS` (default `10`)
+| Variável | Descrição |
+|----------|-----------|
+| `AZURE_STORAGE_CONNECTION_STRING` | Connection string da conta com Table + Queue + Blob. |
+| `FEEDBACK_TABLE_NAME` | Nome da tabela (default `feedbacks`). |
+| `CRITICAL_FEEDBACK_QUEUE_NAME` | Nome da fila (default `critical-feedback`). |
+| `WEEKLY_REPORT_CONTAINER` | Container Blob dos relatórios (default `relatorios`). |
 
-## Build
+Opcionais:
+
+| Variável | Descrição |
+|----------|-----------|
+| `AZURE_HTTP_TIMEOUT_SECONDS` | Timeout SDK (default `10`). |
+| `SENDGRID_API_KEY` | API key SendGrid para e-mail real. |
+| `NOTIFY_FROM_EMAIL` | Remetente verificado no SendGrid. |
+| `ADMIN_NOTIFY_EMAIL` | Destino dos alertas críticos. |
+
+Se SendGrid não estiver configurado, o alerta crítico aparece nos **logs** da função (corpo do “e-mail” simulado).
+
+## Build e pacote Azure Functions
 
 Requisito: **Java 21**.
-
-- **Local**:
 
 ```bash
 mvn -B package
 ```
 
-Isso gera o pacote em `target/azure-functions/<appName>`.
+Gera `target/azure-functions/<appName>/` com `function.json` por função. O nome da app vem de `-Dquarkus.azure-functions.app-name=...` ou da propriedade Maven `function.appName` no `pom.xml`.
 
-## Infra (GitHub Actions)
+## Infra e CI/CD
 
-Use o workflow **Infra — deploy** para subir um Resource Group e os recursos mínimos:
+- **Bicep**: `infra/main.bicep` — storage de dados (tabela + fila + container), storage do runtime, App Insights, Function App.
+- **GitHub Actions**: `/.github/workflows` — deploy da infra (manual) e deploy do pacote Java (OIDC + RBAC).
 
-- Storage Account (com Table service + tabela)
-- Function App (Consumption)
-- Application Insights
+## Desenvolvimento local
 
+Pode usar **Azurite** (`docker-compose.yml`) para Blob, Queue e Table; a connection string segue o formato documentado para Azurite.
+
+## Documentação das funções (enunciado)
+
+- **E-mail de urgência**: descrição, urgência, data de envio (UTC, ISO-8601 na mensagem).
+- **Relatório semanal**: para cada avaliação no período — descrição, urgência, data de envio; mais quantidade por dia, quantidade por urgência e **média das notas**.

@@ -1,14 +1,19 @@
 package br.com.fiap.tc.feedback.infrastructure.database;
 
 import br.com.fiap.tc.feedback.domain.model.Urgencia;
+import com.azure.core.util.Context;
 import com.azure.data.tables.TableClient;
 import com.azure.data.tables.TableClientBuilder;
 import com.azure.data.tables.TableServiceClientBuilder;
+import com.azure.data.tables.models.ListEntitiesOptions;
 import com.azure.data.tables.models.TableEntity;
 import jakarta.enterprise.context.ApplicationScoped;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import org.jboss.logging.Logger;
 
@@ -52,6 +57,30 @@ public class TableFeedbackRepository {
     LOG.infof("tableRepo.save success partitionKey=%s rowKey=%s", day, id);
 
     return new FeedbackRow(id, day, descricao, nota, urgencia.name(), createdAt.toString());
+  }
+
+  /** Lista avaliações cuja partição (dia UTC yyyy-MM-dd) está entre {@code start} e {@code end}, inclusive. */
+  public List<FeedbackRow> listBetweenInclusive(LocalDate start, LocalDate end) {
+    var startPk = start.toString();
+    var endPk = end.toString();
+    var filter = String.format("(PartitionKey ge '%s') and (PartitionKey le '%s')", startPk, endPk);
+    var opts = new ListEntitiesOptions().setFilter(filter);
+    var out = new ArrayList<FeedbackRow>();
+    LOG.infof("tableRepo.listBetween start=%s end=%s", startPk, endPk);
+    for (var e : table.listEntities(opts, Duration.ofSeconds(60), Context.NONE)) {
+      out.add(fromEntity(e));
+    }
+    LOG.infof("tableRepo.listBetween count=%d", out.size());
+    return out;
+  }
+
+  private static FeedbackRow fromEntity(TableEntity e) {
+    var descricao = Objects.toString(e.getProperty("descricao"), "");
+    var notaProp = e.getProperty("nota");
+    var nota = notaProp instanceof Number n ? n.intValue() : Integer.parseInt(Objects.toString(notaProp, "0"));
+    var urgencia = Objects.toString(e.getProperty("urgencia"), "");
+    var createdAt = Objects.toString(e.getProperty("createdAt"), "");
+    return new FeedbackRow(e.getRowKey(), e.getPartitionKey(), descricao, nota, urgencia, createdAt);
   }
 
   public record FeedbackRow(String id, String day, String descricao, int nota, String urgencia, String createdAt) {}
