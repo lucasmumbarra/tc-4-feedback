@@ -6,9 +6,13 @@ permissions:
 
 on:
   workflow_dispatch:
+    inputs:
+      function_app_name:
+        description: Nome exato da Function App no Azure (tem de bater com o pacote target/azure-functions/<nome>)
+        required: true
+        default: tc4fb-func
 
 env:
-  AZURE_FUNCTIONAPP_NAME: tc4fb-func
   DISTRIBUTION: zulu
   JAVA_VERSION: "21"
 
@@ -17,6 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: dev
     env:
+      AZURE_FUNCTIONAPP_NAME: ${{ inputs.function_app_name }}
       PUBLISH_PROFILE: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
     steps:
       - name: Checkout GitHub Action
