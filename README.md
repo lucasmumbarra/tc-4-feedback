@@ -47,7 +47,15 @@ Opcionais:
 | `NOTIFY_FROM_EMAIL` | Remetente no formato exigido pelo ACS (ex.: endereço `DoNotReply` no subdomínio `*.azurecomm.net` do recurso, ou domínio personalizado verificado no portal). |
 | `ADMIN_NOTIFY_EMAIL` | Destino dos alertas críticos. |
 
-Sem connection string ACS ou sem remetente/destino, o alerta crítico aparece nos **logs** da função (corpo do “e-mail” simulado). No portal Azure: Communication Services → **Email** → ligar domínio gerido Azure ou domínio próprio e usar o Mail From aprovado.
+Sem connection string ACS ou sem remetente/destino, o alerta crítico aparece nos **logs** da função com a linha `notifyCritical.mode=SIMULATED` e indica **quais** variáveis faltam.
+
+### Por que o e-mail pode “não chegar” mesmo com mensagem na fila
+
+1. **Teste “Run” no portal** em funções **Queue** em Linux Consumption costuma falhar com `Failed to fetch` (CORS/rede do browser). Isso **não** prova que a função não corre; use **Log stream**, **Application Insights** ou deixe a mensagem na fila e espere o host consumir.
+2. **App settings na Function App**: `ACS_EMAIL_CONNECTION_STRING` (ou `AZURE_COMMUNICATION_CONNECTION_STRING`), `NOTIFY_FROM_EMAIL`, `ADMIN_NOTIFY_EMAIL` têm de estar definidas no **mesmo** Function App que processa a fila. Se faltar alguma, o código só regista `notifyCritical.mode=SIMULATED`.
+3. **Fila e connection**: o trigger usa `AZURE_STORAGE_CONNECTION_STRING` e `%CRITICAL_FEEDBACK_QUEUE_NAME%`. A mensagem tem de estar na **mesma** conta de storage que a app usa (a conta de dados do Bicep, não só o Azurite local).
+4. **ACS Email**: no portal, Communication Services → Email → domínio e **Mail From** aprovados; `NOTIFY_FROM_EMAIL` tem de coincidir **exatamente** com o endereço aprovado. Erros da API aparecem como `notifyCritical.mode=ACS_FAILED` ou `acs_email_exception` nos logs.
+
 
 ## Build e pacote Azure Functions
 

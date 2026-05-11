@@ -26,11 +26,18 @@ public class ProcessCriticalFeedbackFunction {
               connection = "AZURE_STORAGE_CONNECTION_STRING")
           String rawMessage,
       final ExecutionContext context) {
-    LOG.infof("processCriticalFeedback.start invocationId=%s", context.getInvocationId());
+    LOG.infof(
+        "processCriticalFeedback.start invocationId=%s msgLen=%d",
+        context.getInvocationId(),
+        rawMessage == null ? 0 : rawMessage.length());
     try {
       var m = mapper.readValue(rawMessage, CriticalFeedbackMessage.class);
       if (m == null || m.urgencia == null || !Urgencia.CRITICA.name().equals(m.urgencia)) {
-        LOG.infof("processCriticalFeedback.skip urgencia=%s", m == null ? "null" : m.urgencia);
+        LOG.warnf(
+            "processCriticalFeedback.skip id=%s urgencia=%s (esperado %s; confirme JSON da mensagem na fila)",
+            m == null ? "null" : m.id,
+            m == null ? "null" : m.urgencia,
+            Urgencia.CRITICA.name());
         return;
       }
       var desc = m.descricao == null ? "" : m.descricao;

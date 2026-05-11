@@ -4,6 +4,7 @@ import br.com.fiap.tc.feedback.domain.model.Urgencia;
 import com.azure.communication.email.EmailClient;
 import com.azure.communication.email.EmailClientBuilder;
 import com.azure.communication.email.models.EmailMessage;
+import com.azure.communication.email.models.EmailSendStatus;
 import com.azure.core.util.Context;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.time.Duration;
@@ -28,8 +29,9 @@ public class AdminEmailNotifier {
     var from = getenv("NOTIFY_FROM_EMAIL");
     if (conn == null || adminTo == null || from == null) {
       LOG.warnf(
-          "notifyCritical.simulated ACS_EMAIL_CONNECTION_STRING (ou AZURE_COMMUNICATION_CONNECTION_STRING), "
-              + "ADMIN_NOTIFY_EMAIL e NOTIFY_FROM_EMAIL são necessários para envio real; body=%n%s",
+          "notifyCritical.mode=SIMULATED missing=%s — configure na Function App (Configuration) as três variáveis; "
+              + "sem isto o processamento da fila corre mas não envia e-mail. Corpo que seria enviado:%n%s",
+          missingEmailConfigParts(conn, adminTo, from),
           bodyText);
       return;
     }
@@ -44,10 +46,32 @@ public class AdminEmailNotifier {
       var poller = client.beginSend(message, Context.NONE);
       poller.waitForCompletion(Duration.ofMinutes(2));
       var result = poller.getFinalResult();
-      LOG.infof("notifyCritical.acs_email_ok operationId=%s", result.getId());
+      if (result.getStatus() == null || !EmailSendStatus.SUCCEEDED.equals(result.getStatus())) {
+        LOG.errorf(
+            "notifyCritical.mode=ACS_FAILED status=%s operationId=%s error=%s",
+            result.getStatus(),
+            result.getId(),
+            result.getError());
+      } else {
+        LOG.infof("notifyCritical.mode=SENT operationId=%s status=%s", result.getId(), result.getStatus());
+      }
     } catch (Exception e) {
-      LOG.errorf(e, "notifyCritical.acs_email_error");
+      LOG.errorf(e, "notifyCritical.acs_email_exception");
     }
+  }
+
+  private static String missingEmailConfigParts(String conn, String adminTo, String from) {
+    var b = new StringBuilder();
+    if (conn == null) {
+      b.append("ACS_EMAIL_CONNECTION_STRING|AZURE_COMMUNICATION_CONNECTION_STRING;");
+    }
+    if (adminTo == null) {
+      b.append("ADMIN_NOTIFY_EMAIL;");
+    }
+    if (from == null) {
+      b.append("NOTIFY_FROM_EMAIL;");
+    }
+    return b.toString();
   }
 
   private EmailClient emailClient(String conn) {
