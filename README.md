@@ -7,7 +7,7 @@ Aplicação **serverless em Java 21 (Quarkus)** no **Azure Functions**, alinhada
 | Função Azure | Gatilho | Responsabilidade |
 |--------------|---------|-------------------|
 | `submitFeedback` | HTTP `POST /api/avaliacao` | Valida payload, classifica urgência, grava na tabela e **enfileira** mensagens só para `CRITICA`. |
-| `processCriticalFeedback` | **Azure Queue** (`critical-feedback`) | Lê a mensagem e dispara **notificação** ao administrador (SendGrid ou log simulado). |
+| `processCriticalFeedback` | **Azure Queue** (`critical-feedback`) | Lê a mensagem e dispara **notificação** ao administrador (**Azure Communication Services — Email** ou log simulado). |
 | `generateWeeklyReport` | **Timer** (segundas, 09:00 UTC) | Lê feedbacks dos últimos 7 dias (UTC), calcula **média**, contagens por dia e por urgência, grava ficheiro no **Blob** `relatorios/`. |
 | `QuarkusHttp` | HTTP (catch-all) | Runtime REST Quarkus (não expõe regra de negócio dedicada). |
 
@@ -43,11 +43,11 @@ Opcionais:
 | Variável | Descrição |
 |----------|-----------|
 | `AZURE_HTTP_TIMEOUT_SECONDS` | Timeout SDK (default `10`). |
-| `SENDGRID_API_KEY` | API key SendGrid para e-mail real. |
-| `NOTIFY_FROM_EMAIL` | Remetente verificado no SendGrid. |
+| `ACS_EMAIL_CONNECTION_STRING` | Connection string do **Azure Communication Services** (recurso com Email ativo). Alternativa: `AZURE_COMMUNICATION_CONNECTION_STRING`. |
+| `NOTIFY_FROM_EMAIL` | Remetente no formato exigido pelo ACS (ex.: endereço `DoNotReply` no subdomínio `*.azurecomm.net` do recurso, ou domínio personalizado verificado no portal). |
 | `ADMIN_NOTIFY_EMAIL` | Destino dos alertas críticos. |
 
-Se SendGrid não estiver configurado, o alerta crítico aparece nos **logs** da função (corpo do “e-mail” simulado).
+Sem connection string ACS ou sem remetente/destino, o alerta crítico aparece nos **logs** da função (corpo do “e-mail” simulado). No portal Azure: Communication Services → **Email** → ligar domínio gerido Azure ou domínio próprio e usar o Mail From aprovado.
 
 ## Build e pacote Azure Functions
 

@@ -11,12 +11,14 @@ O parâmetro **`location`** é passado pelo workflow **Infra — deploy** (input
 - **Application Insights** ligado à Function App (`APPLICATIONINSIGHTS_CONNECTION_STRING`).
 - **Function App** (plano Consumption Linux, Java 21) com identidade gerida (system-assigned) e **HTTPS only**.
 
-## Notificações por e-mail
+## Notificações por e-mail (Azure Communication Services)
 
-O processamento crítico usa **SendGrid** (HTTP) quando configurado na Function App:
+O envio usa o SDK **Azure Communication Services — Email**. O recurso **Communication Services** e o domínio de e-mail (Azure gerido ou personalizado) são normalmente criados à parte no portal ou por Bicep dedicado, porque envolve verificação de domínio e remetente.
 
-- `SENDGRID_API_KEY`
-- `NOTIFY_FROM_EMAIL` (remetente verificado no SendGrid)
-- `ADMIN_NOTIFY_EMAIL` (destino)
+Na **Function App**, configure como **Application settings** (ou em `local.settings.json`):
 
-Se alguma destas variáveis faltar, o envio é **simulado em log** (útil para demo sem custo de e-mail).
+- `ACS_EMAIL_CONNECTION_STRING` (ou `AZURE_COMMUNICATION_CONNECTION_STRING`): connection string do recurso ACS.
+- `NOTIFY_FROM_EMAIL`: endereço **Mail From** aprovado no ACS (ex.: `DoNotReply@<nome>.azurecomm.net`).
+- `ADMIN_NOTIFY_EMAIL`: destinatário do alerta.
+
+Documentação: [Email do Azure Communication Services](https://learn.microsoft.com/azure/communication-services/concepts/email/email-overview).
