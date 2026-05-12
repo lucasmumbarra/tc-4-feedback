@@ -135,6 +135,13 @@ resource functionApp 'Microsoft.Web/sites@2022-09-01' = {
     siteConfig: {
       // Garante runtime Java 21 no Linux.
       linuxFxVersion: 'Java|21'
+      // O painel "Code + Test" do portal faz pedidos a partir de https://portal.azure.com (CORS).
+      cors: {
+        allowedOrigins: [
+          'https://portal.azure.com'
+        ]
+        supportCredentials: false
+      }
       appSettings: [
         // Functions runtime
         { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }

@@ -52,11 +52,12 @@ Sem connection string ACS ou sem remetente/destino, o alerta crítico aparece no
 
 ### Por que o e-mail pode “não chegar” mesmo com mensagem na fila
 
-1. **Teste “Run” no portal** em funções **Queue** em Linux Consumption costuma falhar com `Failed to fetch` (CORS/rede do browser). Isso **não** prova que a função não corre; use **Log stream**, **Application Insights** ou deixe a mensagem na fila e espere o host consumir.
+1. **Teste “Run” no portal** em funções **Queue** em Linux Consumption costuma falhar com `Failed to fetch` (HTTP 0): o browser do portal não consegue invocar o endpoint de teste (CORS/rede). **Não uses** “Run” em `processCriticalFeedback` como prova de funcionamento. O Bicep inclui CORS para `https://portal.azure.com`, o que ajuda em alguns casos, mas o método fiável é: **Log stream** / **Application Insights** enquanto envias um `POST /api/avaliacao` com nota 0–3 (ou uma mensagem na fila).
 2. **App settings na Function App**: `ACS_EMAIL_CONNECTION_STRING` (ou `AZURE_COMMUNICATION_CONNECTION_STRING`), `NOTIFY_FROM_EMAIL`, `ADMIN_NOTIFY_EMAIL` têm de estar definidas no **mesmo** Function App que processa a fila. Se faltar alguma, o código só regista `notifyCritical.mode=SIMULATED`.
 3. **Fila**: nome fixo **`critical-feedback`** (trigger e produtor alinhados ao Bicep). A conta de storage tem de ser a mesma que em `AZURE_STORAGE_CONNECTION_STRING` (SDK) e em **`AzureWebJobsDataStorage`** (host do Functions para o QueueTrigger). A variável `CRITICAL_FEEDBACK_QUEUE_NAME` só altera o **produtor** se mudares o nome da fila no código/Bicep em conjunto.
-4. **Queue trigger sem consumo (Dequeue count = 0)**: o binding `connection="DataStorage"` exige na Function App a setting **`AzureWebJobsDataStorage`** com a **mesma** connection string da conta onde está a fila `critical-feedback` (a conta de dados). O Bicep já define isso. Em local, copia o valor de `AZURE_STORAGE_CONNECTION_STRING` para `AzureWebJobsDataStorage` em `local.settings.json` — o runtime do Functions não usa `AZURE_STORAGE_CONNECTION_STRING` para resolver o trigger.
-
+4. **Queue trigger sem consumo (Dequeue count = 0)**:
+   - **`host.json` tem de incluir `extensionBundle`** (Storage Queues). Sem isto o host **não** regista o listener da fila — sintoma típico: mensagens na fila e dequeue sempre 0. O repositório já inclui o bundle `[4.0.0, 5.0.0)`; volta a fazer **deploy do pacote** da Function App.
+   - **`AzureWebJobsDataStorage`**: mesma connection string da conta onde está `critical-feedback` (definido no Bicep). O binding usa `connection="DataStorage"` → `AzureWebJobsDataStorage`.
 
 ## Build e pacote Azure Functions
 

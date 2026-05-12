@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.43.1.21952",
-      "templateHash": "339161976459435017"
+      "templateHash": "14158020411401015741"
     }
   },
   "parameters": {
@@ -187,6 +187,12 @@
         "httpsOnly": true,
         "siteConfig": {
           "linuxFxVersion": "Java|21",
+          "cors": {
+            "allowedOrigins": [
+              "https://portal.azure.com"
+            ],
+            "supportCredentials": false
+          },
           "appSettings": [
             {
               "name": "FUNCTIONS_EXTENSION_VERSION",
