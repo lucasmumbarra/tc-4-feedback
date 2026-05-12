@@ -35,7 +35,7 @@ Obrigatórias (local `local.settings.json` e Azure **Configuration**):
 |----------|-----------|
 | `AZURE_STORAGE_CONNECTION_STRING` | Connection string da conta com Table + Queue + Blob. |
 | `FEEDBACK_TABLE_NAME` | Nome da tabela (default `feedbacks`). |
-| `CRITICAL_FEEDBACK_QUEUE_NAME` | Nome da fila (default `critical-feedback`). |
+| `CRITICAL_FEEDBACK_QUEUE_NAME` | Opcional: altera só para onde o **HTTP** envia mensagens (default `critical-feedback`). O **trigger** da função usa o mesmo nome em código (`FeedbackQueueNames`); se mudares um, alinha o outro e o Bicep. |
 | `WEEKLY_REPORT_CONTAINER` | Container Blob dos relatórios (default `relatorios`). |
 
 Opcionais:
@@ -53,7 +53,7 @@ Sem connection string ACS ou sem remetente/destino, o alerta crítico aparece no
 
 1. **Teste “Run” no portal** em funções **Queue** em Linux Consumption costuma falhar com `Failed to fetch` (CORS/rede do browser). Isso **não** prova que a função não corre; use **Log stream**, **Application Insights** ou deixe a mensagem na fila e espere o host consumir.
 2. **App settings na Function App**: `ACS_EMAIL_CONNECTION_STRING` (ou `AZURE_COMMUNICATION_CONNECTION_STRING`), `NOTIFY_FROM_EMAIL`, `ADMIN_NOTIFY_EMAIL` têm de estar definidas no **mesmo** Function App que processa a fila. Se faltar alguma, o código só regista `notifyCritical.mode=SIMULATED`.
-3. **Fila e connection**: o trigger usa `AZURE_STORAGE_CONNECTION_STRING` e `%CRITICAL_FEEDBACK_QUEUE_NAME%`. A mensagem tem de estar na **mesma** conta de storage que a app usa (a conta de dados do Bicep, não só o Azurite local).
+3. **Fila e connection**: o trigger usa `AZURE_STORAGE_CONNECTION_STRING` e o nome fixo da fila **`critical-feedback`** (igual ao Bicep e ao `submitFeedback`). A mensagem tem de estar nessa fila na **mesma** conta de storage que a app usa. A variável `CRITICAL_FEEDBACK_QUEUE_NAME` só altera o **produtor** se quiseres outro nome (mantém o trigger e o Bicep alinhados ao mudar).
 4. **ACS Email**: no portal, Communication Services → Email → domínio e **Mail From** aprovados; `NOTIFY_FROM_EMAIL` tem de coincidir **exatamente** com o endereço aprovado. Erros da API aparecem como `notifyCritical.mode=ACS_FAILED` ou `acs_email_exception` nos logs.
 
 

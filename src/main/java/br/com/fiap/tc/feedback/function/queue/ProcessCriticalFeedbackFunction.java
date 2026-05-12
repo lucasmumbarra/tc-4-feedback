@@ -3,6 +3,7 @@ package br.com.fiap.tc.feedback.function.queue;
 import br.com.fiap.tc.feedback.application.dto.messaging.CriticalFeedbackMessage;
 import br.com.fiap.tc.feedback.domain.model.Urgencia;
 import br.com.fiap.tc.feedback.infrastructure.email.AdminEmailNotifier;
+import br.com.fiap.tc.feedback.infrastructure.messaging.FeedbackQueueNames;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.microsoft.azure.functions.ExecutionContext;
 import com.microsoft.azure.functions.annotation.FunctionName;
@@ -22,7 +23,7 @@ public class ProcessCriticalFeedbackFunction {
   public void process(
       @QueueTrigger(
               name = "msg",
-              queueName = "%CRITICAL_FEEDBACK_QUEUE_NAME%",
+              queueName = FeedbackQueueNames.CRITICAL_FEEDBACK,
               connection = "AZURE_STORAGE_CONNECTION_STRING")
           String rawMessage,
       final ExecutionContext context) {

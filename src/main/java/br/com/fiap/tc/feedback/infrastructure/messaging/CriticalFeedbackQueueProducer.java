@@ -44,7 +44,7 @@ public class CriticalFeedbackQueueProducer {
       }
       var conn = System.getenv("AZURE_STORAGE_CONNECTION_STRING");
       Objects.requireNonNull(conn, "AZURE_STORAGE_CONNECTION_STRING is required");
-      queueName = envOrDefault("CRITICAL_FEEDBACK_QUEUE_NAME", "critical-feedback");
+      queueName = envOrDefault("CRITICAL_FEEDBACK_QUEUE_NAME", FeedbackQueueNames.CRITICAL_FEEDBACK);
       queueClient =
           new QueueClientBuilder().connectionString(conn).queueName(queueName).buildClient();
       queueClient.createIfNotExists();
