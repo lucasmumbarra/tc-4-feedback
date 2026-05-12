@@ -35,7 +35,7 @@ Obrigatórias (local `local.settings.json` e Azure **Configuration**):
 |----------|-----------|
 | `AZURE_STORAGE_CONNECTION_STRING` | Connection string da conta com Table + Queue + Blob. |
 | `FEEDBACK_TABLE_NAME` | Nome da tabela (default `feedbacks`). |
-| `CRITICAL_FEEDBACK_QUEUE_NAME` | Opcional: altera só para onde o **HTTP** envia mensagens (default `critical-feedback`). O **trigger** da função usa o mesmo nome em código (`FeedbackQueueNames`); se mudares um, alinha o outro e o Bicep. |
+| `AzureWebJobsDataStorage` | **Obrigatório para o QueueTrigger**: mesma connection string que `AZURE_STORAGE_CONNECTION_STRING` (conta de dados). O runtime mapeia `connection="DataStorage"` → `AzureWebJobsDataStorage`. |
 | `WEEKLY_REPORT_CONTAINER` | Container Blob dos relatórios (default `relatorios`). |
 
 Opcionais:
@@ -43,6 +43,7 @@ Opcionais:
 | Variável | Descrição |
 |----------|-----------|
 | `AZURE_HTTP_TIMEOUT_SECONDS` | Timeout SDK (default `10`). |
+| `CRITICAL_FEEDBACK_QUEUE_NAME` | Opcional: nome da fila no **produtor** (default `critical-feedback`). O trigger usa nome fixo em código. |
 | `ACS_EMAIL_CONNECTION_STRING` | Connection string do **Azure Communication Services** (recurso com Email ativo). Alternativa: `AZURE_COMMUNICATION_CONNECTION_STRING`. |
 | `NOTIFY_FROM_EMAIL` | Remetente no formato exigido pelo ACS (ex.: endereço `DoNotReply` no subdomínio `*.azurecomm.net` do recurso, ou domínio personalizado verificado no portal). |
 | `ADMIN_NOTIFY_EMAIL` | Destino dos alertas críticos. |
@@ -53,8 +54,8 @@ Sem connection string ACS ou sem remetente/destino, o alerta crítico aparece no
 
 1. **Teste “Run” no portal** em funções **Queue** em Linux Consumption costuma falhar com `Failed to fetch` (CORS/rede do browser). Isso **não** prova que a função não corre; use **Log stream**, **Application Insights** ou deixe a mensagem na fila e espere o host consumir.
 2. **App settings na Function App**: `ACS_EMAIL_CONNECTION_STRING` (ou `AZURE_COMMUNICATION_CONNECTION_STRING`), `NOTIFY_FROM_EMAIL`, `ADMIN_NOTIFY_EMAIL` têm de estar definidas no **mesmo** Function App que processa a fila. Se faltar alguma, o código só regista `notifyCritical.mode=SIMULATED`.
-3. **Fila e connection**: o trigger usa `AZURE_STORAGE_CONNECTION_STRING` e o nome fixo da fila **`critical-feedback`** (igual ao Bicep e ao `submitFeedback`). A mensagem tem de estar nessa fila na **mesma** conta de storage que a app usa. A variável `CRITICAL_FEEDBACK_QUEUE_NAME` só altera o **produtor** se quiseres outro nome (mantém o trigger e o Bicep alinhados ao mudar).
-4. **ACS Email**: no portal, Communication Services → Email → domínio e **Mail From** aprovados; `NOTIFY_FROM_EMAIL` tem de coincidir **exatamente** com o endereço aprovado. Erros da API aparecem como `notifyCritical.mode=ACS_FAILED` ou `acs_email_exception` nos logs.
+3. **Fila**: nome fixo **`critical-feedback`** (trigger e produtor alinhados ao Bicep). A conta de storage tem de ser a mesma que em `AZURE_STORAGE_CONNECTION_STRING` (SDK) e em **`AzureWebJobsDataStorage`** (host do Functions para o QueueTrigger). A variável `CRITICAL_FEEDBACK_QUEUE_NAME` só altera o **produtor** se mudares o nome da fila no código/Bicep em conjunto.
+4. **Queue trigger sem consumo (Dequeue count = 0)**: o binding `connection="DataStorage"` exige na Function App a setting **`AzureWebJobsDataStorage`** com a **mesma** connection string da conta onde está a fila `critical-feedback` (a conta de dados). O Bicep já define isso. Em local, copia o valor de `AZURE_STORAGE_CONNECTION_STRING` para `AzureWebJobsDataStorage` em `local.settings.json` — o runtime do Functions não usa `AZURE_STORAGE_CONNECTION_STRING` para resolver o trigger.
 
 
 ## Build e pacote Azure Functions

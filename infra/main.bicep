@@ -149,8 +149,10 @@ resource functionApp 'Microsoft.Web/sites@2022-09-01' = {
         { name: 'ApplicationInsightsAgent_EXTENSION_VERSION', value: '~3' }
         { name: 'XDT_MicrosoftApplicationInsights_Mode', value: 'recommended' }
 
-        // App settings (Table Storage)
+        // App settings (Table Storage + fila + blob) — código Java lê AZURE_STORAGE_CONNECTION_STRING
         { name: 'AZURE_STORAGE_CONNECTION_STRING', value: 'DefaultEndpointsProtocol=https;AccountName=${tableStorage.name};AccountKey=${tableStorage.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}' }
+        // O runtime do Azure Functions resolve connection="DataStorage" → app setting AzureWebJobsDataStorage (obrigatório para o QueueTrigger)
+        { name: 'AzureWebJobsDataStorage', value: 'DefaultEndpointsProtocol=https;AccountName=${tableStorage.name};AccountKey=${tableStorage.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}' }
         { name: 'FEEDBACK_TABLE_NAME', value: feedbackTableName }
 
         // Mensageria e relatórios (mesmo storage account da tabela)

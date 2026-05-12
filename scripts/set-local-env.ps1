@@ -27,6 +27,6 @@ Load-DotEnv (Join-Path $PSScriptRoot "..\.env.example")
 Write-Host "Variáveis carregadas no processo atual:"
 Write-Host "  AZURE_STORAGE_CONNECTION_STRING=$($env:AZURE_STORAGE_CONNECTION_STRING.Substring(0, [Math]::Min(60, $env:AZURE_STORAGE_CONNECTION_STRING.Length)))..."
 Write-Host "  FEEDBACK_TABLE_NAME=$env:FEEDBACK_TABLE_NAME"
-Write-Host "  CRITICAL_FEEDBACK_QUEUE_NAME=$env:CRITICAL_FEEDBACK_QUEUE_NAME"
+Write-Host "  AzureWebJobsDataStorage=(igual AZURE_STORAGE para o QueueTrigger local)"
 Write-Host "  AZURE_HTTP_TIMEOUT_SECONDS=$env:AZURE_HTTP_TIMEOUT_SECONDS"
 

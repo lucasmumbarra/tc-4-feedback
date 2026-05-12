@@ -24,7 +24,7 @@ public class ProcessCriticalFeedbackFunction {
       @QueueTrigger(
               name = "msg",
               queueName = FeedbackQueueNames.CRITICAL_FEEDBACK,
-              connection = "AZURE_STORAGE_CONNECTION_STRING")
+              connection = "DataStorage")
           String rawMessage,
       final ExecutionContext context) {
     LOG.infof(

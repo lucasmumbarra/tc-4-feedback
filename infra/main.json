@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.43.1.21952",
-      "templateHash": "16880405590054990862"
+      "templateHash": "339161976459435017"
     }
   },
   "parameters": {
@@ -226,6 +226,10 @@
             },
             {
               "name": "AZURE_STORAGE_CONNECTION_STRING",
+              "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};AccountKey={1};EndpointSuffix={2}', variables('tableStorageName'), listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('tableStorageName')), '2023-01-01').keys[0].value, environment().suffixes.storage)]"
+            },
+            {
+              "name": "AzureWebJobsDataStorage",
               "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};AccountKey={1};EndpointSuffix={2}', variables('tableStorageName'), listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('tableStorageName')), '2023-01-01').keys[0].value, environment().suffixes.storage)]"
             },
             {
