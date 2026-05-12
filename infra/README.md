@@ -12,6 +12,7 @@ O parâmetro **`location`** é passado pelo workflow **Infra — deploy** (input
 - **Function App** (plano Consumption Linux, Java 21) com identidade gerida (system-assigned) e **HTTPS only**.
 - **`AzureWebJobsDataStorage`**: mesma connection string da conta de dados, para o runtime resolver o **QueueTrigger** (`connection="DataStorage"` no código).
 - O pacote da Function App inclui **`host.json` com `extensionBundle`** (v4.x); sem o bundle o host **não** carrega a extensão de **Storage Queues** e a fila não é consumida (dequeue 0).
+- **`extensions.queues.messageEncoding` = `none`**: alinha o trigger com mensagens JSON enviadas pelo SDK Java (o runtime v4 assume Base64 por defeito; sem isto aparece `Message decoding has failed` e mensagens vão para **`critical-feedback-poison`**).
 
 ## Notificações por e-mail (Azure Communication Services)
 

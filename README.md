@@ -57,6 +57,7 @@ Sem connection string ACS ou sem remetente/destino, o alerta crítico aparece no
 3. **Fila**: nome fixo **`critical-feedback`** (trigger e produtor alinhados ao Bicep). A conta de storage tem de ser a mesma que em `AZURE_STORAGE_CONNECTION_STRING` (SDK) e em **`AzureWebJobsDataStorage`** (host do Functions para o QueueTrigger). A variável `CRITICAL_FEEDBACK_QUEUE_NAME` só altera o **produtor** se mudares o nome da fila no código/Bicep em conjunto.
 4. **Queue trigger sem consumo (Dequeue count = 0)**:
    - **`host.json` tem de incluir `extensionBundle`** (Storage Queues). Sem isto o host **não** regista o listener da fila — sintoma típico: mensagens na fila e dequeue sempre 0. O repositório já inclui o bundle `[4.0.0, 5.0.0)`; volta a fazer **deploy do pacote** da Function App.
+   - **`extensions.queues.messageEncoding` = `none`**: o `QueueTrigger` do Functions v4 assume **Base64** por defeito; o `QueueClient` Java envia **JSON em texto**. Sem `none`, o host regista `Message decoding has failed`, incrementa dequeue até 5 e move para **`critical-feedback-poison`** — a função **nunca** corre e **não há e-mail**.
    - **`AzureWebJobsDataStorage`**: mesma connection string da conta onde está `critical-feedback` (definido no Bicep). O binding usa `connection="DataStorage"` → `AzureWebJobsDataStorage`.
 
 ## Build e pacote Azure Functions
