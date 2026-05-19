@@ -13,6 +13,8 @@
     "NOTIFY_FROM_EMAIL": "",
     "SMTP_HOST": "smtp.sendgrid.net",
     "SMTP_PORT": "587",
-    "SMTP_USERNAME": "apikey"
+    "SMTP_USERNAME": "apikey",
+    "SEND_CRITICAL_EMAIL_FUNCTION_KEY": "",
+    "SEND_CRITICAL_EMAIL_URL": ""
   }
 }

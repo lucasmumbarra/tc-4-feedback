@@ -6,9 +6,10 @@ Aplicação **serverless em Java 21 (Quarkus)** no **Azure Functions**, alinhada
 
 | Função Azure | Gatilho | Responsabilidade |
 |--------------|---------|-------------------|
-| `submitFeedback` | HTTP `POST /api/avaliacao` (via `QuarkusHttp`) | Valida payload, classifica urgência, grava na tabela e, se `CRITICA` (nota 0–3), **envia e-mail** via SendGrid SMTP e regista log em `emaillogs`. |
-| `generateWeeklyReport` | **Timer** (segundas, 09:00 UTC) | Lê feedbacks dos últimos 7 dias (UTC), calcula **média**, contagens por dia e por urgência, grava ficheiro no **Blob** `relatorios/`. |
-| `QuarkusHttp` | HTTP (catch-all) | Runtime REST Quarkus (não expõe regra de negócio dedicada). |
+| `submitFeedback` | HTTP `POST /api/avaliacao` (via `QuarkusHttp`) | Valida, grava feedback; se `CRITICA`, **dispara** `sendCriticalEmail` (HTTP assíncrono, sem aguardar). |
+| `sendCriticalEmail` | HTTP `POST /api/send-critical-email` | Envia e-mail (SendGrid SMTP) e grava log em `emaillogs`. |
+| `generateWeeklyReport` | **Timer** (segundas, 09:00 UTC) | Relatório semanal no Blob `relatorios/`. |
+| `QuarkusHttp` | HTTP (catch-all) | Runtime REST Quarkus (`/api/avaliacao`). |
 
 Observabilidade: **Application Insights** (connection string nas app settings da Function App). Segurança: **HTTPS**, storage sem acesso público anónimo, **Managed Identity** na app (evolução natural para RBAC em secrets/Key Vault fora do escopo mínimo).
 
@@ -25,7 +26,7 @@ Regras:
 - **descricao** obrigatória (não vazia).
 - **nota** entre 0 e 10.
 - Urgência: 0–3 → `CRITICA`; 4–6 → `ATENCAO`; 7–10 → `OK`.
-- Se `CRITICA`: após gravar o feedback, o sistema chama o serviço interno `SendCriticalEmailFunction` (não aparece como função separada no portal — corre dentro do mesmo `POST`).
+- Se `CRITICA`: após gravar, dispara `POST /api/send-critical-email` **sem esperar** o resultado; erros de envio ficam em `emaillogs`.
 
 ## Variáveis de ambiente
 
@@ -49,6 +50,8 @@ Opcionais:
 | `SMTP_HOST` | Opcional (default `smtp.sendgrid.net`). |
 | `SMTP_PORT` | Opcional (default `587`). |
 | `SMTP_USERNAME` | Opcional (default `apikey`). |
+| `SEND_CRITICAL_EMAIL_FUNCTION_KEY` | Chave da function `sendCriticalEmail` (Portal → Function Keys → default). |
+| `SEND_CRITICAL_EMAIL_URL` | Opcional: URL completa da function (default usa `WEBSITE_HOSTNAME`). |
 
 Sem as três variáveis obrigatórias, o alerta crítico é registado com `mode=SIMULATED` na tabela `emaillogs` (como no seu teste: `errorDetail` lista o que falta).
 
@@ -56,7 +59,7 @@ Sem as três variáveis obrigatórias, o alerta crítico é registado com `mode=
 
 1. **Variáveis na Function App em runtime** (não basta só no GitHub): o código lê `System.getenv()` na Azure. Pode configurar no **Portal** (Configuration) ou deixar o workflow **Deploy Java project** gravar os secrets do environment **Actions** (`SENDGRID_API_KEY`, `NOTIFY_FROM_EMAIL`, `ADMIN_NOTIFY_EMAIL`) via `az functionapp config appsettings set` após cada deploy.
 2. **SendGrid**: remetente verificado; API key válida (username SMTP = `apikey`, password = a API key).
-3. **`SendCriticalEmailFunction` no portal**: não existe como função à parte; o envio ocorre no fluxo de `QuarkusHttp` / `submitFeedback`.
+3. **`sendCriticalEmail` no portal**: deve aparecer como function HTTP; configure `SEND_CRITICAL_EMAIL_FUNCTION_KEY` (mesma app que recebe o submit).
 3. **Tabela de logs**: consulte `emaillogs` no Storage Explorer — cada tentativa de envio crítico gera uma linha com `mode` (`SENT`, `SIMULATED`, `SENDGRID_FAILED`, `EXCEPTION`).
 
 ## Tabelas (Table Storage)

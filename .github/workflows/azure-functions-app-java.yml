@@ -67,5 +67,6 @@ jobs:
               "SMTP_HOST=smtp.sendgrid.net" \
               "SMTP_PORT=587" \
               "SMTP_USERNAME=apikey" \
+              "SEND_CRITICAL_EMAIL_FUNCTION_KEY=${{ secrets.SEND_CRITICAL_EMAIL_FUNCTION_KEY }}" \
             --output none
           echo "App settings de e-mail atualizadas na Function App."

@@ -1,35 +1,64 @@
 package br.com.fiap.tc.feedback.function.email;
 
+import br.com.fiap.tc.feedback.application.dto.email.SendCriticalEmailRequest;
 import br.com.fiap.tc.feedback.domain.model.Urgencia;
-import br.com.fiap.tc.feedback.infrastructure.database.TableEmailLogRepository;
-import br.com.fiap.tc.feedback.infrastructure.email.AdminEmailNotifier;
+import br.com.fiap.tc.feedback.infrastructure.email.CriticalEmailSender;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.microsoft.azure.functions.ExecutionContext;
+import com.microsoft.azure.functions.HttpMethod;
+import com.microsoft.azure.functions.HttpRequestMessage;
+import com.microsoft.azure.functions.HttpResponseMessage;
+import com.microsoft.azure.functions.HttpStatus;
+import com.microsoft.azure.functions.annotation.AuthorizationLevel;
+import com.microsoft.azure.functions.annotation.FunctionName;
+import com.microsoft.azure.functions.annotation.HttpTrigger;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import java.time.Instant;
+import java.util.Optional;
 import org.jboss.logging.Logger;
 
 /**
- * Serviço interno (não aparece como função separada no portal Azure). É invocado por {@link
- * br.com.fiap.tc.feedback.function.http.SubmitFeedbackFunction} quando a urgência é {@code
- * CRITICA}. Envia e-mail via SendGrid SMTP e persiste o resultado na tabela {@code emaillogs}.
+ * Azure Function HTTP: envia e-mail de feedback crítico (SendGrid SMTP) e grava log em
+ * {@code emaillogs}. Invocada de forma assíncrona por {@link
+ * br.com.fiap.tc.feedback.function.http.SubmitFeedbackFunction}.
  */
 @ApplicationScoped
 public class SendCriticalEmailFunction {
   private static final Logger LOG = Logger.getLogger(SendCriticalEmailFunction.class);
 
-  @Inject AdminEmailNotifier notifier;
-  @Inject TableEmailLogRepository emailLogRepo;
+  @Inject ObjectMapper mapper;
+  @Inject CriticalEmailSender emailSender;
 
-  public void sendForCriticalFeedback(
-      String feedbackId, String descricao, Urgencia urgencia, String feedbackCreatedAtIso) {
-    LOG.infof("sendCriticalEmail.start feedbackId=%s urgencia=%s", feedbackId, urgencia.name());
-    var result = notifier.notifyCritical(descricao, urgencia, feedbackCreatedAtIso);
+  @FunctionName("sendCriticalEmail")
+  public HttpResponseMessage run(
+      @HttpTrigger(
+              name = "req",
+              methods = {HttpMethod.POST},
+              route = "send-critical-email",
+              authLevel = AuthorizationLevel.FUNCTION)
+          HttpRequestMessage<Optional<String>> request,
+      final ExecutionContext context) {
+    LOG.infof("sendCriticalEmail.start invocationId=%s", context.getInvocationId());
     try {
-      emailLogRepo.save(
-          feedbackId, descricao, urgencia.name(), feedbackCreatedAtIso, result, Instant.now());
+      var raw = request.getBody().orElse(null);
+      if (raw == null || raw.isBlank()) {
+        return request.createResponseBuilder(HttpStatus.BAD_REQUEST).body("body required").build();
+      }
+      var dto = mapper.readValue(raw, SendCriticalEmailRequest.class);
+      if (dto.feedbackId == null
+          || dto.descricao == null
+          || dto.urgencia == null
+          || !Urgencia.CRITICA.name().equals(dto.urgencia)) {
+        return request.createResponseBuilder(HttpStatus.BAD_REQUEST)
+            .body("feedbackId, descricao and urgencia=CRITICA required")
+            .build();
+      }
+      var when = dto.feedbackCreatedAt == null ? "" : dto.feedbackCreatedAt;
+      emailSender.send(dto.feedbackId, dto.descricao, Urgencia.CRITICA, when);
+      return request.createResponseBuilder(HttpStatus.ACCEPTED).body("accepted").build();
     } catch (Exception e) {
-      LOG.errorf(e, "sendCriticalEmail.log_failed feedbackId=%s mode=%s", feedbackId, result.mode());
+      LOG.errorf(e, "sendCriticalEmail.error invocationId=%s", context.getInvocationId());
+      return request.createResponseBuilder(HttpStatus.INTERNAL_SERVER_ERROR).body("error").build();
     }
-    LOG.infof("sendCriticalEmail.done feedbackId=%s mode=%s", feedbackId, result.mode());
   }
 }
