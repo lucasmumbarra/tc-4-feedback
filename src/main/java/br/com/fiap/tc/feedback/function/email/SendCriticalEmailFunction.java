@@ -18,9 +18,11 @@ import java.util.Optional;
 import org.jboss.logging.Logger;
 
 /**
- * Azure Function HTTP: envia e-mail de feedback crítico (SendGrid SMTP) e grava log em
- * {@code emaillogs}. Invocada de forma assíncrona por {@link
- * br.com.fiap.tc.feedback.function.http.SubmitFeedbackFunction}.
+ * Azure Function HTTP ({@code POST /api/send-critical-email}): envia e-mail crítico e grava log em
+ * {@code emaillogs}.
+ *
+ * <p>O submit chama {@link #process(SendCriticalEmailRequest)} diretamente (CDI), porque o
+ * {@code QuarkusHttp} captura todo {@code /api/*} e um HTTP interno para esta rota devolve 404.
  */
 @ApplicationScoped
 public class SendCriticalEmailFunction {
@@ -28,6 +30,15 @@ public class SendCriticalEmailFunction {
 
   @Inject ObjectMapper mapper;
   @Inject CriticalEmailSender emailSender;
+
+  /** Lógica partilhada entre o trigger HTTP (portal/testes) e o submit. */
+  public void process(SendCriticalEmailRequest dto) {
+    validate(dto);
+    var when = dto.feedbackCreatedAt == null ? "" : dto.feedbackCreatedAt;
+    LOG.infof("sendCriticalEmail.process.start feedbackId=%s", dto.feedbackId);
+    emailSender.send(dto.feedbackId, dto.descricao, Urgencia.CRITICA, when);
+    LOG.infof("sendCriticalEmail.process.done feedbackId=%s", dto.feedbackId);
+  }
 
   @FunctionName("sendCriticalEmail")
   public HttpResponseMessage run(
@@ -45,20 +56,23 @@ public class SendCriticalEmailFunction {
         return request.createResponseBuilder(HttpStatus.BAD_REQUEST).body("body required").build();
       }
       var dto = mapper.readValue(raw, SendCriticalEmailRequest.class);
-      if (dto.feedbackId == null
-          || dto.descricao == null
-          || dto.urgencia == null
-          || !Urgencia.CRITICA.name().equals(dto.urgencia)) {
-        return request.createResponseBuilder(HttpStatus.BAD_REQUEST)
-            .body("feedbackId, descricao and urgencia=CRITICA required")
-            .build();
-      }
-      var when = dto.feedbackCreatedAt == null ? "" : dto.feedbackCreatedAt;
-      emailSender.send(dto.feedbackId, dto.descricao, Urgencia.CRITICA, when);
+      process(dto);
       return request.createResponseBuilder(HttpStatus.ACCEPTED).body("accepted").build();
+    } catch (IllegalArgumentException e) {
+      return request.createResponseBuilder(HttpStatus.BAD_REQUEST).body(e.getMessage()).build();
     } catch (Exception e) {
       LOG.errorf(e, "sendCriticalEmail.error invocationId=%s", context.getInvocationId());
       return request.createResponseBuilder(HttpStatus.INTERNAL_SERVER_ERROR).body("error").build();
+    }
+  }
+
+  private static void validate(SendCriticalEmailRequest dto) {
+    if (dto == null
+        || dto.feedbackId == null
+        || dto.descricao == null
+        || dto.urgencia == null
+        || !Urgencia.CRITICA.name().equals(dto.urgencia)) {
+      throw new IllegalArgumentException("feedbackId, descricao and urgencia=CRITICA required");
     }
   }
 }

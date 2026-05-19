@@ -6,8 +6,8 @@ Aplicação **serverless em Java 21 (Quarkus)** no **Azure Functions**, alinhada
 
 | Função Azure | Gatilho | Responsabilidade |
 |--------------|---------|-------------------|
-| `submitFeedback` | HTTP `POST /api/avaliacao` (via `QuarkusHttp`) | Valida, grava feedback; se `CRITICA`, chama `sendCriticalEmail` via HTTP **síncrono** (invocação separada no portal). |
-| `sendCriticalEmail` | HTTP `POST /api/send-critical-email` | Envia e-mail (SendGrid SMTP) e grava log em `emaillogs`. |
+| `submitFeedback` | HTTP `POST /api/avaliacao` (via `QuarkusHttp`) | Valida, grava feedback; se `CRITICA`, chama `SendCriticalEmailFunction.process()` (CDI). |
+| `sendCriticalEmail` | HTTP `POST /api/send-critical-email` | Azure Function + endpoint Quarkus; envia e-mail e grava `emaillogs`. Testável no portal (Run) ou via POST. |
 | `generateWeeklyReport` | **Timer** (segundas, 09:00 UTC) | Relatório semanal no Blob `relatorios/`. |
 | `QuarkusHttp` | HTTP (catch-all) | Runtime REST Quarkus (`/api/avaliacao`). |
 
@@ -26,7 +26,7 @@ Regras:
 - **descricao** obrigatória (não vazia).
 - **nota** entre 0 e 10.
 - Urgência: 0–3 → `CRITICA`; 4–6 → `ATENCAO`; 7–10 → `OK`.
-- Se `CRITICA`: após gravar, chama `POST /api/send-critical-email` (aguarda a function concluir — no Azure, `runAsync` após o `201` é cancelado). Erros ficam em `emaillogs`.
+- Se `CRITICA`: após gravar, executa a lógica de `sendCriticalEmail` no mesmo worker (não via HTTP interno — `QuarkusHttp` captura `/api/*` e causava 404). Erros ficam em `emaillogs`.
 
 ## Variáveis de ambiente
 
@@ -50,8 +50,6 @@ Opcionais:
 | `SMTP_HOST` | Opcional (default `smtp.sendgrid.net`). |
 | `SMTP_PORT` | Opcional (default `587`). |
 | `SMTP_USERNAME` | Opcional (default `apikey`). |
-| `SEND_CRITICAL_EMAIL_FUNCTION_KEY` | Opcional: chave se a function voltar a `authLevel=FUNCTION`. Por defeito a rota é `ANONYMOUS`. |
-| `SEND_CRITICAL_EMAIL_URL` | Opcional: URL completa da function (default usa `WEBSITE_HOSTNAME`). |
 
 Sem as três variáveis obrigatórias, o alerta crítico é registado com `mode=SIMULATED` na tabela `emaillogs` (como no seu teste: `errorDetail` lista o que falta).
 
@@ -59,7 +57,7 @@ Sem as três variáveis obrigatórias, o alerta crítico é registado com `mode=
 
 1. **Variáveis na Function App em runtime** (não basta só no GitHub): o código lê `System.getenv()` na Azure. Pode configurar no **Portal** (Configuration) ou deixar o workflow **Deploy Java project** gravar os secrets do environment **Actions** (`SENDGRID_API_KEY`, `NOTIFY_FROM_EMAIL`, `ADMIN_NOTIFY_EMAIL`) via `az functionapp config appsettings set` após cada deploy.
 2. **SendGrid**: remetente verificado; API key válida (username SMTP = `apikey`, password = a API key).
-3. **`sendCriticalEmail` no portal**: deve aparecer como function HTTP; configure `SEND_CRITICAL_EMAIL_FUNCTION_KEY` (mesma app que recebe o submit).
+3. **`sendCriticalEmail` no portal**: aparece como function HTTP; teste com **Run** no portal ou `POST /api/send-critical-email`. O submit usa a mesma lógica via CDI (logs `sendCriticalEmail.process.*`).
 3. **Tabela de logs**: consulte `emaillogs` no Storage Explorer — cada tentativa de envio crítico gera uma linha com `mode` (`SENT`, `SIMULATED`, `SENDGRID_FAILED`, `EXCEPTION`).
 
 ## Tabelas (Table Storage)
