@@ -14,14 +14,14 @@ O parâmetro **`location`** é passado pelo workflow **Infra — deploy** (input
 - O pacote da Function App inclui **`host.json` com `extensionBundle`** (v4.x); sem o bundle o host **não** carrega a extensão de **Storage Queues** e a fila não é consumida (dequeue 0).
 - **`extensions.queues.messageEncoding` = `none`**: alinha o trigger com mensagens JSON enviadas pelo SDK Java (o runtime v4 assume Base64 por defeito; sem isto aparece `Message decoding has failed` e mensagens vão para **`critical-feedback-poison`**).
 
-## Notificações por e-mail (Azure Communication Services)
+## Notificações por e-mail (SendGrid)
 
-O envio usa o SDK **Azure Communication Services — Email**. O recurso **Communication Services** e o domínio de e-mail (Azure gerido ou personalizado) são normalmente criados à parte no portal ou por Bicep dedicado, porque envolve verificação de domínio e remetente.
+O envio usa o SDK **SendGrid** (`sendgrid-java`). Crie uma conta em [sendgrid.com](https://sendgrid.com), gere uma API key e verifique o remetente (Single Sender ou autenticação de domínio).
 
 Na **Function App**, configure como **Application settings** (ou em `local.settings.json`):
 
-- `ACS_EMAIL_CONNECTION_STRING` (ou `AZURE_COMMUNICATION_CONNECTION_STRING`): connection string do recurso ACS.
-- `NOTIFY_FROM_EMAIL`: endereço **Mail From** aprovado no ACS (ex.: `DoNotReply@<nome>.azurecomm.net`).
+- `SENDGRID_API_KEY`: API key com permissão **Mail Send**.
+- `NOTIFY_FROM_EMAIL`: endereço remetente verificado no SendGrid.
 - `ADMIN_NOTIFY_EMAIL`: destinatário do alerta.
 
-Documentação: [Email do Azure Communication Services](https://learn.microsoft.com/azure/communication-services/concepts/email/email-overview).
+Documentação: [SendGrid API — Mail Send](https://docs.sendgrid.com/api-reference/mail-send/mail-send).

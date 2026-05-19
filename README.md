@@ -7,7 +7,7 @@ Aplicação **serverless em Java 21 (Quarkus)** no **Azure Functions**, alinhada
 | Função Azure | Gatilho | Responsabilidade |
 |--------------|---------|-------------------|
 | `submitFeedback` | HTTP `POST /api/avaliacao` | Valida payload, classifica urgência, grava na tabela e **enfileira** mensagens só para `CRITICA`. |
-| `processCriticalFeedback` | **Azure Queue** (`critical-feedback`) | Lê a mensagem e dispara **notificação** ao administrador (**Azure Communication Services — Email** ou log simulado). |
+| `processCriticalFeedback` | **Azure Queue** (`critical-feedback`) | Lê a mensagem e dispara **notificação** ao administrador (**SendGrid** ou log simulado). |
 | `generateWeeklyReport` | **Timer** (segundas, 09:00 UTC) | Lê feedbacks dos últimos 7 dias (UTC), calcula **média**, contagens por dia e por urgência, grava ficheiro no **Blob** `relatorios/`. |
 | `QuarkusHttp` | HTTP (catch-all) | Runtime REST Quarkus (não expõe regra de negócio dedicada). |
 
@@ -44,16 +44,16 @@ Opcionais:
 |----------|-----------|
 | `AZURE_HTTP_TIMEOUT_SECONDS` | Timeout SDK (default `10`). |
 | `CRITICAL_FEEDBACK_QUEUE_NAME` | Opcional: nome da fila no **produtor** (default `critical-feedback`). O trigger usa nome fixo em código. |
-| `ACS_EMAIL_CONNECTION_STRING` | Connection string do **Azure Communication Services** (recurso com Email ativo). Alternativa: `AZURE_COMMUNICATION_CONNECTION_STRING`. |
-| `NOTIFY_FROM_EMAIL` | Remetente no formato exigido pelo ACS (ex.: endereço `DoNotReply` no subdomínio `*.azurecomm.net` do recurso, ou domínio personalizado verificado no portal). |
+| `SENDGRID_API_KEY` | API key do **SendGrid** (Settings → API Keys). |
+| `NOTIFY_FROM_EMAIL` | Remetente verificado no SendGrid (Single Sender ou domínio autenticado). |
 | `ADMIN_NOTIFY_EMAIL` | Destino dos alertas críticos. |
 
-Sem connection string ACS ou sem remetente/destino, o alerta crítico aparece nos **logs** da função com a linha `notifyCritical.mode=SIMULATED` e indica **quais** variáveis faltam.
+Sem API key SendGrid ou sem remetente/destino, o alerta crítico aparece nos **logs** da função com a linha `notifyCritical.mode=SIMULATED` e indica **quais** variáveis faltam.
 
 ### Por que o e-mail pode “não chegar” mesmo com mensagem na fila
 
 1. **Teste “Run” no portal** em funções **Queue** em Linux Consumption costuma falhar com `Failed to fetch` (HTTP 0): o browser do portal não consegue invocar o endpoint de teste (CORS/rede). **Não uses** “Run” em `processCriticalFeedback` como prova de funcionamento. O Bicep inclui CORS para `https://portal.azure.com`, o que ajuda em alguns casos, mas o método fiável é: **Log stream** / **Application Insights** enquanto envias um `POST /api/avaliacao` com nota 0–3 (ou uma mensagem na fila).
-2. **App settings na Function App**: `ACS_EMAIL_CONNECTION_STRING` (ou `AZURE_COMMUNICATION_CONNECTION_STRING`), `NOTIFY_FROM_EMAIL`, `ADMIN_NOTIFY_EMAIL` têm de estar definidas no **mesmo** Function App que processa a fila. Se faltar alguma, o código só regista `notifyCritical.mode=SIMULATED`.
+2. **App settings na Function App**: `SENDGRID_API_KEY`, `NOTIFY_FROM_EMAIL`, `ADMIN_NOTIFY_EMAIL` têm de estar definidas no **mesmo** Function App que processa a fila. Se faltar alguma, o código só regista `notifyCritical.mode=SIMULATED`.
 3. **Fila**: nome fixo **`critical-feedback`** (trigger e produtor alinhados ao Bicep). A conta de storage tem de ser a mesma que em `AZURE_STORAGE_CONNECTION_STRING` (SDK) e em **`AzureWebJobsDataStorage`** (host do Functions para o QueueTrigger). A variável `CRITICAL_FEEDBACK_QUEUE_NAME` só altera o **produtor** se mudares o nome da fila no código/Bicep em conjunto.
 4. **Queue trigger sem consumo (Dequeue count = 0)**:
    - **`host.json` tem de incluir `extensionBundle`** (Storage Queues). Sem isto o host **não** regista o listener da fila — sintoma típico: mensagens na fila e dequeue sempre 0. O repositório já inclui o bundle `[4.0.0, 5.0.0)`; volta a fazer **deploy do pacote** da Function App.

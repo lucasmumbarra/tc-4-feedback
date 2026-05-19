@@ -1,69 +1,72 @@
 package br.com.fiap.tc.feedback.infrastructure.email;
 
 import br.com.fiap.tc.feedback.domain.model.Urgencia;
-import com.azure.communication.email.EmailClient;
-import com.azure.communication.email.EmailClientBuilder;
-import com.azure.communication.email.models.EmailMessage;
-import com.azure.communication.email.models.EmailSendStatus;
-import com.azure.core.util.Context;
+import com.sendgrid.Method;
+import com.sendgrid.Request;
+import com.sendgrid.SendGrid;
+import com.sendgrid.helpers.mail.Mail;
+import com.sendgrid.helpers.mail.objects.Content;
+import com.sendgrid.helpers.mail.objects.Email;
 import jakarta.enterprise.context.ApplicationScoped;
-import java.time.Duration;
 import org.jboss.logging.Logger;
 
 /**
- * Notifica administradores sobre feedback crítico via <strong>Azure Communication Services —
- * Email</strong>. Requer connection string do recurso ACS com Email ativo e endereço de remetente
- * já associado (domínio Azure ou domínio verificado). Sem configuração, o conteúdo é apenas
- * registado nos logs.
+ * Notifica administradores sobre feedback crítico via <strong>SendGrid</strong>. Requer API key e
+ * endereço de remetente verificado no SendGrid. Sem configuração, o conteúdo é apenas registado
+ * nos logs.
  */
 @ApplicationScoped
 public class AdminEmailNotifier {
   private static final Logger LOG = Logger.getLogger(AdminEmailNotifier.class);
 
-  private volatile EmailClient emailClient;
+  private volatile SendGrid sendGrid;
 
   public void notifyCritical(String descricao, Urgencia urgencia, String dataEnvioIso) {
     var bodyText = buildPlainBody(descricao, urgencia, dataEnvioIso);
-    var conn = emailConnectionString();
+    var apiKey = getenv("SENDGRID_API_KEY");
     var adminTo = getenv("ADMIN_NOTIFY_EMAIL");
     var from = getenv("NOTIFY_FROM_EMAIL");
-    if (conn == null || adminTo == null || from == null) {
+    if (apiKey == null || adminTo == null || from == null) {
       LOG.warnf(
           "notifyCritical.mode=SIMULATED missing=%s — configure na Function App (Configuration) as três variáveis; "
               + "sem isto o processamento da fila corre mas não envia e-mail. Corpo que seria enviado:%n%s",
-          missingEmailConfigParts(conn, adminTo, from),
+          missingEmailConfigParts(apiKey, adminTo, from),
           bodyText);
       return;
     }
     try {
-      var client = emailClient(conn);
-      var message =
-          new EmailMessage()
-              .setSenderAddress(from)
-              .setToRecipients(adminTo)
-              .setSubject("[Feedback] Avaliação crítica recebida")
-              .setBodyPlainText(bodyText);
-      var poller = client.beginSend(message, Context.NONE);
-      poller.waitForCompletion(Duration.ofMinutes(2));
-      var result = poller.getFinalResult();
-      if (result.getStatus() == null || !EmailSendStatus.SUCCEEDED.equals(result.getStatus())) {
-        LOG.errorf(
-            "notifyCritical.mode=ACS_FAILED status=%s operationId=%s error=%s",
-            result.getStatus(),
-            result.getId(),
-            result.getError());
+      var client = sendGridClient(apiKey);
+      var mail =
+          new Mail(
+              new Email(from),
+              "[Feedback] Avaliação crítica recebida",
+              new Email(adminTo),
+              new Content("text/plain", bodyText));
+
+      var request = new Request();
+      request.setMethod(Method.POST);
+      request.setEndpoint("mail/send");
+      request.setBody(mail.build());
+
+      var response = client.api(request);
+      var status = response.getStatusCode();
+      if (status >= 200 && status < 300) {
+        LOG.infof("notifyCritical.mode=SENT statusCode=%d", status);
       } else {
-        LOG.infof("notifyCritical.mode=SENT operationId=%s status=%s", result.getId(), result.getStatus());
+        LOG.errorf(
+            "notifyCritical.mode=SENDGRID_FAILED statusCode=%d body=%s",
+            status,
+            response.getBody());
       }
     } catch (Exception e) {
-      LOG.errorf(e, "notifyCritical.acs_email_exception");
+      LOG.errorf(e, "notifyCritical.sendgrid_exception");
     }
   }
 
-  private static String missingEmailConfigParts(String conn, String adminTo, String from) {
+  private static String missingEmailConfigParts(String apiKey, String adminTo, String from) {
     var b = new StringBuilder();
-    if (conn == null) {
-      b.append("ACS_EMAIL_CONNECTION_STRING|AZURE_COMMUNICATION_CONNECTION_STRING;");
+    if (apiKey == null) {
+      b.append("SENDGRID_API_KEY;");
     }
     if (adminTo == null) {
       b.append("ADMIN_NOTIFY_EMAIL;");
@@ -74,25 +77,17 @@ public class AdminEmailNotifier {
     return b.toString();
   }
 
-  private EmailClient emailClient(String conn) {
-    if (emailClient != null) {
-      return emailClient;
+  private SendGrid sendGridClient(String apiKey) {
+    if (sendGrid != null) {
+      return sendGrid;
     }
     synchronized (this) {
-      if (emailClient == null) {
-        emailClient = new EmailClientBuilder().connectionString(conn).buildClient();
-        LOG.info("notifyCritical.acs_email_client_initialized");
+      if (sendGrid == null) {
+        sendGrid = new SendGrid(apiKey);
+        LOG.info("notifyCritical.sendgrid_client_initialized");
       }
-      return emailClient;
+      return sendGrid;
     }
-  }
-
-  private static String emailConnectionString() {
-    var a = getenv("ACS_EMAIL_CONNECTION_STRING");
-    if (a != null) {
-      return a;
-    }
-    return getenv("AZURE_COMMUNICATION_CONNECTION_STRING");
   }
 
   private static String buildPlainBody(String descricao, Urgencia urgencia, String dataEnvioIso) {

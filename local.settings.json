@@ -9,7 +9,7 @@
     "CRITICAL_FEEDBACK_QUEUE_NAME": "critical-feedback",
     "WEEKLY_REPORT_CONTAINER": "relatorios",
     "AZURE_HTTP_TIMEOUT_SECONDS": "10",
-    "ACS_EMAIL_CONNECTION_STRING": "",
+    "SENDGRID_API_KEY": "",
     "ADMIN_NOTIFY_EMAIL": "",
     "NOTIFY_FROM_EMAIL": ""
   }

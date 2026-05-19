@@ -42,7 +42,7 @@ permissions:
   contents: read
 
 env:
-  # RG da infra separado do RG do ACS/Email (mantido manualmente).
+  # RG da infra separado de secrets externos (ex.: SendGrid, configurado manualmente na Function App).
   RG_NAME: rg-${{ inputs.prefix }}-${{ inputs.environment }}-infra
 
 jobs:
@@ -82,7 +82,7 @@ jobs:
               fi
             done
 
-      - name: Gerar ficheiro de parâmetros (ACS em secret)
+      - name: Gerar ficheiro de parâmetros
         env:
           P_PREFIX: ${{ inputs.prefix }}
           P_ENV: ${{ inputs.environment }}
