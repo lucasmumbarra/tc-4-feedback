@@ -13,7 +13,7 @@ import org.jboss.logging.Logger;
 /**
  * Notifica administradores sobre feedback crítico via <strong>SendGrid</strong>. Requer API key e
  * endereço de remetente verificado no SendGrid. Sem configuração, o conteúdo é apenas registado
- * nos logs.
+ * nos logs (modo {@code SIMULATED}).
  */
 @ApplicationScoped
 public class AdminEmailNotifier {
@@ -21,18 +21,18 @@ public class AdminEmailNotifier {
 
   private volatile SendGrid sendGrid;
 
-  public void notifyCritical(String descricao, Urgencia urgencia, String dataEnvioIso) {
+  public EmailSendResult notifyCritical(String descricao, Urgencia urgencia, String dataEnvioIso) {
     var bodyText = buildPlainBody(descricao, urgencia, dataEnvioIso);
     var apiKey = getenv("SENDGRID_API_KEY");
     var adminTo = getenv("ADMIN_NOTIFY_EMAIL");
     var from = getenv("NOTIFY_FROM_EMAIL");
     if (apiKey == null || adminTo == null || from == null) {
       LOG.warnf(
-          "notifyCritical.mode=SIMULATED missing=%s — configure na Function App (Configuration) as três variáveis; "
-              + "sem isto o processamento da fila corre mas não envia e-mail. Corpo que seria enviado:%n%s",
+          "notifyCritical.mode=SIMULATED missing=%s — configure SENDGRID_API_KEY, NOTIFY_FROM_EMAIL e "
+              + "ADMIN_NOTIFY_EMAIL. Corpo que seria enviado:%n%s",
           missingEmailConfigParts(apiKey, adminTo, from),
           bodyText);
-      return;
+      return new EmailSendResult("SIMULATED", null, missingEmailConfigParts(apiKey, adminTo, from), from, adminTo);
     }
     try {
       var client = sendGridClient(apiKey);
@@ -52,14 +52,14 @@ public class AdminEmailNotifier {
       var status = response.getStatusCode();
       if (status >= 200 && status < 300) {
         LOG.infof("notifyCritical.mode=SENT statusCode=%d", status);
-      } else {
-        LOG.errorf(
-            "notifyCritical.mode=SENDGRID_FAILED statusCode=%d body=%s",
-            status,
-            response.getBody());
+        return new EmailSendResult("SENT", status, null, from, adminTo);
       }
+      var body = response.getBody();
+      LOG.errorf("notifyCritical.mode=SENDGRID_FAILED statusCode=%d body=%s", status, body);
+      return new EmailSendResult("SENDGRID_FAILED", status, body, from, adminTo);
     } catch (Exception e) {
       LOG.errorf(e, "notifyCritical.sendgrid_exception");
+      return new EmailSendResult("EXCEPTION", null, e.getMessage(), from, adminTo);
     }
   }
 

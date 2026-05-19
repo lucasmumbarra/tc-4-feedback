@@ -1,13 +1,11 @@
 package br.com.fiap.tc.feedback.function.http;
 
-import br.com.fiap.tc.feedback.application.dto.messaging.CriticalFeedbackMessage;
 import br.com.fiap.tc.feedback.application.dto.request.AvaliacaoRequest;
 import br.com.fiap.tc.feedback.application.dto.response.AvaliacaoResponse;
 import br.com.fiap.tc.feedback.domain.model.Urgencia;
 import br.com.fiap.tc.feedback.domain.policy.UrgenciaPolicy;
+import br.com.fiap.tc.feedback.function.email.SendCriticalEmailFunction;
 import br.com.fiap.tc.feedback.infrastructure.database.TableFeedbackRepository;
-import br.com.fiap.tc.feedback.infrastructure.messaging.CriticalFeedbackQueueProducer;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
@@ -29,8 +27,7 @@ public class SubmitFeedbackFunction {
   private static final DateTimeFormatter TS = DateTimeFormatter.ISO_INSTANT.withZone(ZoneOffset.UTC);
 
   @Inject TableFeedbackRepository repo;
-  @Inject CriticalFeedbackQueueProducer criticalQueue;
-  @Inject ObjectMapper mapper;
+  @Inject SendCriticalEmailFunction sendCriticalEmail;
 
   @POST
   public Response criar(AvaliacaoRequest req) {
@@ -67,15 +64,9 @@ public class SubmitFeedbackFunction {
 
       if (urgencia == Urgencia.CRITICA) {
         try {
-          var q = new CriticalFeedbackMessage();
-          q.id = row.id();
-          q.descricao = row.descricao();
-          q.nota = row.nota();
-          q.urgencia = row.urgencia();
-          q.createdAt = row.createdAt();
-          criticalQueue.enqueueJson(mapper.writeValueAsString(q));
+          sendCriticalEmail.sendForCriticalFeedback(row.id(), row.descricao(), urgencia, row.createdAt());
         } catch (Exception ex) {
-          LOG.errorf(ex, "submitFeedback.enqueue_failed traceId=%s id=%s", traceId, row.id());
+          LOG.errorf(ex, "submitFeedback.email_failed traceId=%s id=%s", traceId, row.id());
         }
       }
 
@@ -93,4 +84,3 @@ public class SubmitFeedbackFunction {
 
   record ErrorResponse(String message) {}
 }
-

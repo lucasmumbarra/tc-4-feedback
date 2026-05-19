@@ -50,7 +50,7 @@
       <artifactId>quarkus-azure-functions-http</artifactId>
     </dependency>
 
-    <!-- provided no Quarkus HTTP; precisamos compilar triggers Queue/Timer -->
+    <!-- provided no Quarkus HTTP; precisamos compilar triggers Timer -->
     <dependency>
       <groupId>com.microsoft.azure.functions</groupId>
       <artifactId>azure-functions-java-library</artifactId>
@@ -69,11 +69,6 @@
     <dependency>
       <groupId>com.azure</groupId>
       <artifactId>azure-data-tables</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>com.azure</groupId>
-      <artifactId>azure-storage-queue</artifactId>
     </dependency>
 
     <dependency>

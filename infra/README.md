@@ -6,22 +6,20 @@ O parâmetro **`location`** é passado pelo workflow **Infra — deploy** (input
 
 ## Recursos provisionados (`main.bicep`)
 
-- **Storage Account** (dados da app): Table Storage (tabela de feedbacks), **fila** `critical-feedback`, **container Blob** `relatorios` para relatórios semanais.
+- **Storage Account** (dados da app): Table Storage (tabelas `feedbacks` e `emaillogs`), **container Blob** `relatorios` para relatórios semanais.
 - **Storage Account** (runtime do Azure Functions): `AzureWebJobsStorage` isolado da conta de dados.
 - **Application Insights** ligado à Function App (`APPLICATIONINSIGHTS_CONNECTION_STRING`).
 - **Function App** (plano Consumption Linux, Java 21) com identidade gerida (system-assigned) e **HTTPS only**.
-- **`AzureWebJobsDataStorage`**: mesma connection string da conta de dados, para o runtime resolver o **QueueTrigger** (`connection="DataStorage"` no código).
-- O pacote da Function App inclui **`host.json` com `extensionBundle`** (v4.x); sem o bundle o host **não** carrega a extensão de **Storage Queues** e a fila não é consumida (dequeue 0).
-- **`extensions.queues.messageEncoding` = `none`**: alinha o trigger com mensagens JSON enviadas pelo SDK Java (o runtime v4 assume Base64 por defeito; sem isto aparece `Message decoding has failed` e mensagens vão para **`critical-feedback-poison`**).
 
 ## Notificações por e-mail (SendGrid)
 
-O envio usa o SDK **SendGrid** (`sendgrid-java`). Crie uma conta em [sendgrid.com](https://sendgrid.com), gere uma API key e verifique o remetente (Single Sender ou autenticação de domínio).
+O envio é **síncrono** no `POST /api/avaliacao` quando a nota classifica como `CRITICA` (0–3). O resultado de cada tentativa é gravado na tabela **`emaillogs`**.
 
-Na **Function App**, configure como **Application settings** (ou em `local.settings.json`):
+Configure na **Function App** (Application settings ou `local.settings.json`):
 
 - `SENDGRID_API_KEY`: API key com permissão **Mail Send**.
 - `NOTIFY_FROM_EMAIL`: endereço remetente verificado no SendGrid.
 - `ADMIN_NOTIFY_EMAIL`: destinatário do alerta.
+- `EMAIL_LOG_TABLE_NAME`: nome da tabela de logs (default `emaillogs`, criada pelo Bicep).
 
 Documentação: [SendGrid API — Mail Send](https://docs.sendgrid.com/api-reference/mail-send/mail-send).

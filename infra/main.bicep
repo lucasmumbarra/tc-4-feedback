@@ -12,6 +12,9 @@ param location string = resourceGroup().location
 @description('Nome da tabela no Azure Table Storage')
 param feedbackTableName string = 'feedbacks'
 
+@description('Nome da tabela de logs de envio de e-mail')
+param emailLogTableName string = 'emaillogs'
+
 @description('Timeout (segundos) para chamadas do SDK Azure no runtime')
 param azureHttpTimeoutSeconds int = 10
 
@@ -26,7 +29,6 @@ param functionAppUseUniqueSuffix bool = false
 // Convenção:
 // - Table Storage: {prefix}{envName}tblstg
 // - Functions runtime storage: {prefix}{envName}fnstg
-// - (futuro) Queue storage: {prefix}{envName}qstg
 var tableStorageName = toLower(replace('${prefix}${envName}tblstg', '-', ''))
 var funcStorageName = toLower(replace('${prefix}${envName}fnstg', '-', ''))
 var appInsightsName = '${prefix}-appi'
@@ -58,14 +60,9 @@ resource feedbackTable 'Microsoft.Storage/storageAccounts/tableServices/tables@2
   name: feedbackTableName
 }
 
-resource queueService 'Microsoft.Storage/storageAccounts/queueServices@2023-01-01' = {
-  parent: tableStorage
-  name: 'default'
-}
-
-resource criticalFeedbackQueue 'Microsoft.Storage/storageAccounts/queueServices/queues@2023-01-01' = {
-  parent: queueService
-  name: 'critical-feedback'
+resource emailLogTable 'Microsoft.Storage/storageAccounts/tableServices/tables@2023-01-01' = {
+  parent: tableService
+  name: emailLogTableName
 }
 
 resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01' = {
@@ -156,14 +153,12 @@ resource functionApp 'Microsoft.Web/sites@2022-09-01' = {
         { name: 'ApplicationInsightsAgent_EXTENSION_VERSION', value: '~3' }
         { name: 'XDT_MicrosoftApplicationInsights_Mode', value: 'recommended' }
 
-        // App settings (Table Storage + fila + blob) — código Java lê AZURE_STORAGE_CONNECTION_STRING
+        // App settings (Table Storage + blob) — código Java lê AZURE_STORAGE_CONNECTION_STRING
         { name: 'AZURE_STORAGE_CONNECTION_STRING', value: 'DefaultEndpointsProtocol=https;AccountName=${tableStorage.name};AccountKey=${tableStorage.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}' }
-        // O runtime do Azure Functions resolve connection="DataStorage" → app setting AzureWebJobsDataStorage (obrigatório para o QueueTrigger)
-        { name: 'AzureWebJobsDataStorage', value: 'DefaultEndpointsProtocol=https;AccountName=${tableStorage.name};AccountKey=${tableStorage.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}' }
         { name: 'FEEDBACK_TABLE_NAME', value: feedbackTableName }
+        { name: 'EMAIL_LOG_TABLE_NAME', value: emailLogTableName }
 
-        // Mensageria e relatórios (mesmo storage account da tabela)
-        { name: 'CRITICAL_FEEDBACK_QUEUE_NAME', value: criticalFeedbackQueue.name }
+        // Relatórios (mesmo storage account da tabela)
         { name: 'WEEKLY_REPORT_CONTAINER', value: reportsContainer.name }
 
         // App settings (SDK timeouts)
@@ -177,6 +172,7 @@ output resourceGroupName string = resourceGroup().name
 output locationOut string = location
 output functionAppName string = functionApp.name
 output feedbackTableNameOut string = feedbackTableName
+output emailLogTableNameOut string = emailLogTableName
 output tableStorageAccountName string = tableStorage.name
 output funcStorageAccountName string = funcStorage.name
 
