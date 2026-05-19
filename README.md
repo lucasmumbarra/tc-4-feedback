@@ -8,7 +8,7 @@ Aplicação **serverless em Java 21 (Quarkus)** no **Azure Functions**, alinhada
 |--------------|---------|-------------------|
 | `submitFeedback` | HTTP `POST /api/avaliacao` (via `QuarkusHttp`) | Valida, grava feedback; se `CRITICA`, chama `SendCriticalEmailFunction.process()` (CDI). |
 | `sendCriticalEmail` | HTTP `POST /api/send-critical-email` | Azure Function + endpoint Quarkus; envia e-mail e grava `emaillogs`. Testável no portal (Run) ou via POST. |
-| `generateWeeklyReport` | **Timer** (segundas, 09:00 UTC) | Relatório semanal no Blob `relatorios/`. |
+| `generateWeeklyReport` | **Timer** (segundas, 09:00 UTC) | Lê `feedbacks` (7 dias UTC), média/agregações, gera **PDF**, envia ao admin por e-mail e grava cópia no Blob `relatorios/`. |
 | `QuarkusHttp` | HTTP (catch-all) | Runtime REST Quarkus (`/api/avaliacao`). |
 
 Observabilidade: **Application Insights** (connection string nas app settings da Function App). Segurança: **HTTPS**, storage sem acesso público anónimo, **Managed Identity** na app (evolução natural para RBAC em secrets/Key Vault fora do escopo mínimo).
@@ -89,4 +89,8 @@ Pode usar **Azurite** (`docker-compose.yml`) para Blob e Table; a connection str
 ## Documentação das funções (enunciado)
 
 - **E-mail de urgência**: descrição, urgência, data de envio (UTC, ISO-8601).
-- **Relatório semanal**: para cada avaliação no período — descrição, urgência, data de envio; mais quantidade por dia, quantidade por urgência e **média das notas**.
+- **Relatório semanal** (dados da Table Storage, PDF em anexo ao admin):
+  - **Média das notas**
+  - **Quantidade de avaliações por dia**
+  - **Quantidade de avaliações por urgência**
+  - Para cada avaliação: **descrição**, **urgência**, **data de envio**

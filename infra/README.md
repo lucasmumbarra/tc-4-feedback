@@ -6,7 +6,7 @@ O parâmetro **`location`** é passado pelo workflow **Infra — deploy** (input
 
 ## Recursos provisionados (`main.bicep`)
 
-- **Storage Account** (dados da app): Table Storage (tabelas `feedbacks` e `emaillogs`), **container Blob** `relatorios` para relatórios semanais.
+- **Storage Account** (dados da app): Table Storage (tabelas `feedbacks` e `emaillogs`), **container Blob** `relatorios` para PDFs dos relatórios semanais.
 - **Storage Account** (runtime do Azure Functions): `AzureWebJobsStorage` isolado da conta de dados.
 - **Application Insights** ligado à Function App (`APPLICATIONINSIGHTS_CONNECTION_STRING`).
 - **Function App** (plano Consumption Linux, Java 21) com identidade gerida (system-assigned) e **HTTPS only**.
