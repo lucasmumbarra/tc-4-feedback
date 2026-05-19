@@ -16,14 +16,18 @@ public class WeeklyReportService {
 
   @Inject TableFeedbackRepository repo;
 
-  /** Últimos 7 dias corridos (UTC), terminando ontem. */
+  /**
+   * Últimos 7 dias corridos (UTC), <strong>incluindo hoje</strong>. PartitionKey = yyyy-MM-dd; dados
+   * gravados no dia da execução entram no relatório (testes manuais e timer de segunda).
+   */
   public WeeklyReportData buildLastSevenDays() {
-    var end = LocalDate.now(ZoneOffset.UTC).minusDays(1);
+    var end = LocalDate.now(ZoneOffset.UTC);
     var start = end.minusDays(6);
     return buildForPeriod(start, end);
   }
 
   public WeeklyReportData buildForPeriod(LocalDate start, LocalDate end) {
+    LOG.infof("weeklyReport.query partitionKey from=%s to=%s (inclusive)", start, end);
     var rows = repo.listBetweenInclusive(start, end);
     var byDay = new TreeMap<String, Integer>();
     var byUrg = new HashMap<String, Integer>();

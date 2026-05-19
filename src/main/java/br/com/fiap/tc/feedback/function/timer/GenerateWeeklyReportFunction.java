@@ -12,7 +12,8 @@ import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
 /**
- * Relatório semanal (segundas, 09:00 UTC): lê feedbacks da Table Storage (últimos 7 dias UTC),
+ * Relatório semanal (segundas, 09:00 UTC): lê feedbacks da Table Storage (últimos 7 dias UTC,
+ * incluindo o dia da execução),
  * calcula média e agregações, gera PDF, envia por e-mail ao admin e grava cópia no Blob.
  */
 @ApplicationScoped
