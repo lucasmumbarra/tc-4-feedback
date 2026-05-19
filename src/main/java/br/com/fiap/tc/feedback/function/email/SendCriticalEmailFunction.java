@@ -9,8 +9,9 @@ import java.time.Instant;
 import org.jboss.logging.Logger;
 
 /**
- * Envia e-mail de alerta para feedback crítico (nota 0–3) e persiste o resultado em Table
- * Storage.
+ * Serviço interno (não aparece como função separada no portal Azure). É invocado por {@link
+ * br.com.fiap.tc.feedback.function.http.SubmitFeedbackFunction} quando a urgência é {@code
+ * CRITICA}. Envia e-mail via SendGrid SMTP e persiste o resultado na tabela {@code emaillogs}.
  */
 @ApplicationScoped
 public class SendCriticalEmailFunction {

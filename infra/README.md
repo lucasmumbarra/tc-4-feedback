@@ -13,13 +13,13 @@ O parâmetro **`location`** é passado pelo workflow **Infra — deploy** (input
 
 ## Notificações por e-mail (SendGrid)
 
-O envio é **síncrono** no `POST /api/avaliacao` quando a nota classifica como `CRITICA` (0–3). O resultado de cada tentativa é gravado na tabela **`emaillogs`**.
+O envio é **síncrono** no `POST /api/avaliacao` quando a nota classifica como `CRITICA` (0–3), via **SMTP** (`smtp.sendgrid.net:587`). O resultado de cada tentativa é gravado na tabela **`emaillogs`**.
 
 Configure na **Function App** (Application settings ou `local.settings.json`):
 
-- `SENDGRID_API_KEY`: API key com permissão **Mail Send**.
-- `NOTIFY_FROM_EMAIL`: endereço remetente verificado no SendGrid.
+- `SENDGRID_API_KEY`: API key (senha SMTP; username = `apikey`).
+- `NOTIFY_FROM_EMAIL`: remetente verificado no SendGrid.
 - `ADMIN_NOTIFY_EMAIL`: destinatário do alerta.
 - `EMAIL_LOG_TABLE_NAME`: nome da tabela de logs (default `emaillogs`, criada pelo Bicep).
 
-Documentação: [SendGrid API — Mail Send](https://docs.sendgrid.com/api-reference/mail-send/mail-send).
+Documentação: [SendGrid — SMTP](https://docs.sendgrid.com/for-developers/sending-email/getting-started-smtp).

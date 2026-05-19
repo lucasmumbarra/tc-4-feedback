@@ -10,6 +10,9 @@
     "AZURE_HTTP_TIMEOUT_SECONDS": "10",
     "SENDGRID_API_KEY": "",
     "ADMIN_NOTIFY_EMAIL": "",
-    "NOTIFY_FROM_EMAIL": ""
+    "NOTIFY_FROM_EMAIL": "",
+    "SMTP_HOST": "smtp.sendgrid.net",
+    "SMTP_PORT": "587",
+    "SMTP_USERNAME": "apikey"
   }
 }

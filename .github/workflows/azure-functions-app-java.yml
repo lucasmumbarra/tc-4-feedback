@@ -11,6 +11,10 @@ on:
         description: Nome exato da Function App no Azure (tem de bater com o pacote target/azure-functions/<nome>)
         required: true
         default: tc4fb-func
+      resource_group:
+        description: Resource group onde está a Function App
+        required: true
+        default: rg-tc4fb-demo-infra
 
 env:
   DISTRIBUTION: zulu
@@ -19,7 +23,7 @@ env:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    # Secrets OIDC (AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID) no environment "Actions"
+    # Secrets no environment "Actions": OIDC + SendGrid (SENDGRID_API_KEY, NOTIFY_FROM_EMAIL, ADMIN_NOTIFY_EMAIL)
     environment: Actions
     env:
       AZURE_FUNCTIONAPP_NAME: ${{ inputs.function_app_name }}
@@ -49,3 +53,19 @@ jobs:
         with:
           app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
           package: target/azure-functions/${{ env.AZURE_FUNCTIONAPP_NAME }}
+
+      # GitHub Environment secrets não chegam à Function App em runtime — é preciso gravá-las nas app settings.
+      - name: Configure SendGrid SMTP app settings
+        run: |
+          az functionapp config appsettings set \
+            --name "$AZURE_FUNCTIONAPP_NAME" \
+            --resource-group "${{ inputs.resource_group }}" \
+            --settings \
+              "SENDGRID_API_KEY=${{ secrets.SENDGRID_API_KEY }}" \
+              "NOTIFY_FROM_EMAIL=${{ secrets.NOTIFY_FROM_EMAIL }}" \
+              "ADMIN_NOTIFY_EMAIL=${{ secrets.ADMIN_NOTIFY_EMAIL }}" \
+              "SMTP_HOST=smtp.sendgrid.net" \
+              "SMTP_PORT=587" \
+              "SMTP_USERNAME=apikey" \
+            --output none
+          echo "App settings de e-mail atualizadas na Function App."
