@@ -6,7 +6,7 @@ Aplicação **serverless em Java 21 (Quarkus)** no **Azure Functions**, alinhada
 
 | Função Azure | Gatilho | Responsabilidade |
 |--------------|---------|-------------------|
-| `submitFeedback` | HTTP `POST /api/avaliacao` (via `QuarkusHttp`) | Valida, grava feedback; se `CRITICA`, **dispara** `sendCriticalEmail` (HTTP assíncrono, sem aguardar). |
+| `submitFeedback` | HTTP `POST /api/avaliacao` (via `QuarkusHttp`) | Valida, grava feedback; se `CRITICA`, chama `sendCriticalEmail` via HTTP **síncrono** (invocação separada no portal). |
 | `sendCriticalEmail` | HTTP `POST /api/send-critical-email` | Envia e-mail (SendGrid SMTP) e grava log em `emaillogs`. |
 | `generateWeeklyReport` | **Timer** (segundas, 09:00 UTC) | Relatório semanal no Blob `relatorios/`. |
 | `QuarkusHttp` | HTTP (catch-all) | Runtime REST Quarkus (`/api/avaliacao`). |
@@ -26,7 +26,7 @@ Regras:
 - **descricao** obrigatória (não vazia).
 - **nota** entre 0 e 10.
 - Urgência: 0–3 → `CRITICA`; 4–6 → `ATENCAO`; 7–10 → `OK`.
-- Se `CRITICA`: após gravar, dispara `POST /api/send-critical-email` **sem esperar** o resultado; erros de envio ficam em `emaillogs`.
+- Se `CRITICA`: após gravar, chama `POST /api/send-critical-email` (aguarda a function concluir — no Azure, `runAsync` após o `201` é cancelado). Erros ficam em `emaillogs`.
 
 ## Variáveis de ambiente
 
@@ -50,7 +50,7 @@ Opcionais:
 | `SMTP_HOST` | Opcional (default `smtp.sendgrid.net`). |
 | `SMTP_PORT` | Opcional (default `587`). |
 | `SMTP_USERNAME` | Opcional (default `apikey`). |
-| `SEND_CRITICAL_EMAIL_FUNCTION_KEY` | Chave da function `sendCriticalEmail` (Portal → Function Keys → default). |
+| `SEND_CRITICAL_EMAIL_FUNCTION_KEY` | Opcional: chave se a function voltar a `authLevel=FUNCTION`. Por defeito a rota é `ANONYMOUS`. |
 | `SEND_CRITICAL_EMAIL_URL` | Opcional: URL completa da function (default usa `WEBSITE_HOSTNAME`). |
 
 Sem as três variáveis obrigatórias, o alerta crítico é registado com `mode=SIMULATED` na tabela `emaillogs` (como no seu teste: `errorDetail` lista o que falta).

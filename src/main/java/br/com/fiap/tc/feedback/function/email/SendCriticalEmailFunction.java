@@ -35,7 +35,7 @@ public class SendCriticalEmailFunction {
               name = "req",
               methods = {HttpMethod.POST},
               route = "send-critical-email",
-              authLevel = AuthorizationLevel.FUNCTION)
+              authLevel = AuthorizationLevel.ANONYMOUS)
           HttpRequestMessage<Optional<String>> request,
       final ExecutionContext context) {
     LOG.infof("sendCriticalEmail.start invocationId=%s", context.getInvocationId());

@@ -63,8 +63,8 @@ public class SubmitFeedbackFunction {
           new AvaliacaoResponse(row.id(), row.descricao(), row.nota(), row.urgencia(), TS.format(createdAt));
 
       if (urgencia == Urgencia.CRITICA) {
-        criticalEmailClient.invokeAsync(row.id(), row.descricao(), urgencia, row.createdAt());
-        LOG.infof("submitFeedback.email_dispatched traceId=%s id=%s", traceId, row.id());
+        criticalEmailClient.invoke(row.id(), row.descricao(), urgencia, row.createdAt());
+        LOG.infof("submitFeedback.email_invoked traceId=%s id=%s", traceId, row.id());
       }
 
       var elapsedMs = (System.nanoTime() - startNs) / 1_000_000L;
