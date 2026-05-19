@@ -18,10 +18,6 @@ import java.util.Locale;
 import java.util.Properties;
 import org.jboss.logging.Logger;
 
-/**
- * E-mails via <strong>SendGrid SMTP</strong> ({@code smtp.sendgrid.net}): alertas críticos e
- * relatório semanal em PDF.
- */
 @ApplicationScoped
 public class AdminEmailNotifier {
   private static final Logger LOG = Logger.getLogger(AdminEmailNotifier.class);

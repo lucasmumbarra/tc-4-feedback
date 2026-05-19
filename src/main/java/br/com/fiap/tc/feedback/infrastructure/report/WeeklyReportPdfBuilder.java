@@ -17,10 +17,6 @@ import java.util.Locale;
 import java.util.Map;
 import org.jboss.logging.Logger;
 
-/**
- * PDF do relatório semanal conforme enunciado: média das notas, quantidade por dia, quantidade por
- * urgência, e para cada avaliação — descrição, urgência e data de envio.
- */
 @ApplicationScoped
 public class WeeklyReportPdfBuilder {
   private static final Logger LOG = Logger.getLogger(WeeklyReportPdfBuilder.class);

@@ -16,10 +16,6 @@ public class WeeklyReportService {
 
   @Inject TableFeedbackRepository repo;
 
-  /**
-   * Últimos 7 dias corridos (UTC), <strong>incluindo hoje</strong>. PartitionKey = yyyy-MM-dd; dados
-   * gravados no dia da execução entram no relatório (testes manuais e timer de segunda).
-   */
   public WeeklyReportData buildLastSevenDays() {
     var end = LocalDate.now(ZoneOffset.UTC);
     var start = end.minusDays(6);
@@ -46,7 +42,6 @@ public class WeeklyReportService {
     return String.format(Locale.US, "relatorio-semana-%s-a-%s.pdf", data.start(), data.end());
   }
 
-  /** Resumo em texto alinhado ao enunciado (campos do relatório semanal). */
   public String plainTextSummary(WeeklyReportData data) {
     var sb = new StringBuilder(1024);
     sb.append("Relatório semanal de feedbacks\n");

@@ -1,5 +1,3 @@
-# Apaga um Resource Group completo (manual + confirmação explícita).
-
 name: Infra — destroy
 
 on:

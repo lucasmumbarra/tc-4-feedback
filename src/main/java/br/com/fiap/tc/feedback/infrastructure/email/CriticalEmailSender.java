@@ -7,7 +7,6 @@ import jakarta.inject.Inject;
 import java.time.Instant;
 import org.jboss.logging.Logger;
 
-/** Envia e-mail crítico via SMTP e persiste o resultado em {@code emaillogs}. */
 @ApplicationScoped
 public class CriticalEmailSender {
   private static final Logger LOG = Logger.getLogger(CriticalEmailSender.class);

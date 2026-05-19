@@ -30,9 +30,7 @@ public class TableFeedbackRepository {
 
     var tableName = envOrDefault("FEEDBACK_TABLE_NAME", DEFAULT_TABLE);
 
-    // Cliente HTTP padrão do SDK (versões alinhadas via azure-sdk-bom). Evita NettyAsyncHttpClientBuilder
-    // com azure-core desalinhado (NoClassDefFoundError: HttpUtils) e conflito com o Netty do Quarkus.
-    LOG.infof("tableRepo.init table=%s (default SDK HTTP client)", tableName);
+    LOG.infof("tableRepo.init table=%s", tableName);
     new TableServiceClientBuilder().connectionString(conn).buildClient().createTableIfNotExists(tableName);
 
     this.table = new TableClientBuilder().connectionString(conn).tableName(tableName).buildClient();
@@ -44,13 +42,13 @@ public class TableFeedbackRepository {
   }
 
   public FeedbackRow saveWithId(String id, String descricao, int nota, Urgencia urgencia, Instant createdAt) {
-    var day = LocalDate.ofInstant(createdAt, ZoneOffset.UTC).toString(); // yyyy-MM-dd
+    var day = LocalDate.ofInstant(createdAt, ZoneOffset.UTC).toString();
 
     var e = new TableEntity(day, id);
     e.addProperty("descricao", descricao);
     e.addProperty("nota", nota);
     e.addProperty("urgencia", urgencia.name());
-    e.addProperty("createdAt", createdAt.toString()); // ISO-8601 UTC
+    e.addProperty("createdAt", createdAt.toString());
 
     LOG.infof("tableRepo.save start partitionKey=%s rowKey=%s urgencia=%s", day, id, urgencia.name());
     table.createEntity(e);
@@ -59,7 +57,6 @@ public class TableFeedbackRepository {
     return new FeedbackRow(id, day, descricao, nota, urgencia.name(), createdAt.toString());
   }
 
-  /** Lista avaliações cuja partição (dia UTC yyyy-MM-dd) está entre {@code start} e {@code end}, inclusive. */
   public List<FeedbackRow> listBetweenInclusive(LocalDate start, LocalDate end) {
     var startPk = start.toString();
     var endPk = end.toString();

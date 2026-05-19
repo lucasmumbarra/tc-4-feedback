@@ -7,12 +7,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
-/**
- * Invoca a lógica de {@link SendCriticalEmailFunction} via CDI (mesmo runtime Quarkus).
- *
- * <p>Não usa HTTP interno: no Azure, {@code QuarkusHttp} com rota {@code api/{*path}} captura
- * {@code /api/send-critical-email} antes da function dedicada, o que gerava 404.
- */
 @ApplicationScoped
 public class CriticalEmailFunctionClient {
   private static final Logger LOG = Logger.getLogger(CriticalEmailFunctionClient.class);

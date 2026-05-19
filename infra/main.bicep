@@ -24,11 +24,6 @@ param functionAppBaseName string = '${prefix}-func'
 @description('Adicionar sufixo único no nome da Function App (útil quando precisa de nomes globais sem conflito)')
 param functionAppUseUniqueSuffix bool = false
 
-// Nomes de Storage: max 24 caracteres (min 3).
-// Importante: Storage Account name precisa ser globalmente único. Aqui fica determinístico por prefix+ambiente.
-// Convenção:
-// - Table Storage: {prefix}{envName}tblstg
-// - Functions runtime storage: {prefix}{envName}fnstg
 var tableStorageName = toLower(replace('${prefix}${envName}tblstg', '-', ''))
 var funcStorageName = toLower(replace('${prefix}${envName}fnstg', '-', ''))
 var appInsightsName = '${prefix}-appi'
@@ -83,7 +78,6 @@ resource reportsContainer 'Microsoft.Storage/storageAccounts/blobServices/contai
   }
 }
 
-// Storage dedicado para o runtime do Azure Functions (AzureWebJobsStorage).
 resource funcStorage 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   name: funcStorageName
   location: location
@@ -114,7 +108,6 @@ resource plan 'Microsoft.Web/serverfarms@2022-09-01' = {
     tier: 'Dynamic'
   }
   properties: {
-    // Necessário para plano Linux (Consumption).
     reserved: true
   }
 }
@@ -130,9 +123,7 @@ resource functionApp 'Microsoft.Web/sites@2022-09-01' = {
     serverFarmId: plan.id
     httpsOnly: true
     siteConfig: {
-      // Garante runtime Java 21 no Linux.
       linuxFxVersion: 'Java|21'
-      // O painel "Code + Test" do portal faz pedidos a partir de https://portal.azure.com (CORS).
       cors: {
         allowedOrigins: [
           'https://portal.azure.com'
@@ -140,28 +131,23 @@ resource functionApp 'Microsoft.Web/sites@2022-09-01' = {
         supportCredentials: false
       }
       appSettings: [
-        // Functions runtime
         { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
         { name: 'FUNCTIONS_WORKER_RUNTIME', value: 'java' }
         { name: 'JAVA_VERSION', value: '21' }
         { name: 'AzureWebJobsStorage', value: 'DefaultEndpointsProtocol=https;AccountName=${funcStorage.name};AccountKey=${funcStorage.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}' }
         { name: 'WEBSITE_RUN_FROM_PACKAGE', value: '1' }
 
-        // Observability
         { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsights.properties.ConnectionString }
         { name: 'APPINSIGHTS_INSTRUMENTATIONKEY', value: appInsights.properties.InstrumentationKey }
         { name: 'ApplicationInsightsAgent_EXTENSION_VERSION', value: '~3' }
         { name: 'XDT_MicrosoftApplicationInsights_Mode', value: 'recommended' }
 
-        // App settings (Table Storage + blob) — código Java lê AZURE_STORAGE_CONNECTION_STRING
         { name: 'AZURE_STORAGE_CONNECTION_STRING', value: 'DefaultEndpointsProtocol=https;AccountName=${tableStorage.name};AccountKey=${tableStorage.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}' }
         { name: 'FEEDBACK_TABLE_NAME', value: feedbackTableName }
         { name: 'EMAIL_LOG_TABLE_NAME', value: emailLogTableName }
 
-        // Relatórios (mesmo storage account da tabela)
         { name: 'WEEKLY_REPORT_CONTAINER', value: reportsContainer.name }
 
-        // App settings (SDK timeouts)
         { name: 'AZURE_HTTP_TIMEOUT_SECONDS', value: string(azureHttpTimeoutSeconds) }
       ]
     }

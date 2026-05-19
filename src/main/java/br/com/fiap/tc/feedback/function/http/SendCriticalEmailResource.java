@@ -10,10 +10,6 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
-/**
- * Endpoint Quarkus para {@code POST /api/send-critical-email} (via {@code QuarkusHttp}). Mesma
- * lógica que a Azure Function {@code sendCriticalEmail}.
- */
 @Path("/send-critical-email")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)

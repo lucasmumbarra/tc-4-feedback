@@ -20,7 +20,6 @@
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
     <quarkus.platform.version>3.34.3</quarkus.platform.version>
 
-    <!-- Alinha azure-core, azure-core-http-netty, azure-data-tables (evita NoClassDefFoundError: HttpUtils) -->
     <azure.sdk.bom.version>1.3.5</azure.sdk.bom.version>
     <junit.jupiter.version>5.11.0</junit.jupiter.version>
   </properties>
@@ -50,7 +49,6 @@
       <artifactId>quarkus-azure-functions-http</artifactId>
     </dependency>
 
-    <!-- provided no Quarkus HTTP; precisamos compilar triggers Timer -->
     <dependency>
       <groupId>com.microsoft.azure.functions</groupId>
       <artifactId>azure-functions-java-library</artifactId>

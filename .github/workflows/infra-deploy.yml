@@ -1,8 +1,3 @@
-# Deploy do Resource Group + infra/main.bicep (manual).
-# Pré-requisitos no Azure: federated credential (OIDC) + secrets no repositório.
-# Ver: https://learn.microsoft.com/azure/azure-resource-manager/bicep/deploy-github-actions
-# Action: https://github.com/marketplace/actions/deploy-azure-resource-manager-arm-template
-
 name: Infra — deploy
 
 on:
@@ -42,7 +37,6 @@ permissions:
   contents: read
 
 env:
-  # RG da infra separado de secrets externos (ex.: SendGrid, configurado manualmente na Function App).
   RG_NAME: rg-${{ inputs.prefix }}-${{ inputs.environment }}-infra
 
 jobs:

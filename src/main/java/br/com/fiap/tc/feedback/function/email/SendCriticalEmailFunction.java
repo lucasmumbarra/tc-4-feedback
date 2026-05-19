@@ -17,13 +17,6 @@ import jakarta.inject.Inject;
 import java.util.Optional;
 import org.jboss.logging.Logger;
 
-/**
- * Azure Function HTTP ({@code POST /api/send-critical-email}): envia e-mail crítico e grava log em
- * {@code emaillogs}.
- *
- * <p>O submit chama {@link #process(SendCriticalEmailRequest)} diretamente (CDI), porque o
- * {@code QuarkusHttp} captura todo {@code /api/*} e um HTTP interno para esta rota devolve 404.
- */
 @ApplicationScoped
 public class SendCriticalEmailFunction {
   private static final Logger LOG = Logger.getLogger(SendCriticalEmailFunction.class);
@@ -31,7 +24,6 @@ public class SendCriticalEmailFunction {
   @Inject ObjectMapper mapper;
   @Inject CriticalEmailSender emailSender;
 
-  /** Lógica partilhada entre o trigger HTTP (portal/testes) e o submit. */
   public void process(SendCriticalEmailRequest dto) {
     validate(dto);
     var when = dto.feedbackCreatedAt == null ? "" : dto.feedbackCreatedAt;

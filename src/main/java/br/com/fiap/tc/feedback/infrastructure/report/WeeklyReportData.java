@@ -5,7 +5,6 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
-/** Dados agregados do relatório semanal. */
 public record WeeklyReportData(
     LocalDate start,
     LocalDate end,
